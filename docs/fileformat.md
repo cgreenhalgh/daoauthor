@@ -38,7 +38,7 @@ The columns in this sheet which define a `region` are:
 - `region` - region ID/name
 - `group` - group of regions to which this belongs (optional, string) - transitions within a group are always considered.
 - `gps` - (default "y") "y" => the region is triggered by having GPS (at all); "n" => region is triggered by NOT having GPS
-- `route` - name of route that will trigger region (string, optional)
+- `routes` - comma-separated list of names of routes that will trigger region (string, optional)
 - `waypoint` - name of waypoint that will trigger region (string, optional); if used a `rangemetres` must also be specified
 - `rangemetres` - range in metres from `waypoint` (if specified) up to which region will be triggered
 - `description` - (optional, string)

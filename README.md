@@ -24,6 +24,7 @@ docker run -it daoauthor
 ```
 In container
 ```
+cd /root/work
 npm install
 npm run-script build
 node dist/index.js data/mobile\ music\ ex1.1.xlsx

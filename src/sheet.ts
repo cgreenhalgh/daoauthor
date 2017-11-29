@@ -77,12 +77,13 @@ export interface Region {
   region:string
   group?:string
   gps:boolean
-  route?:string
+  routes:string[]
   waypoint?:string
   rangemetres:number
   description?:string
   priority:number
   enabledatstart:boolean
+  neighbours:string[]
   enable:string[]
   disable:string[]
   theme:string
@@ -127,12 +128,13 @@ export function readRegions(workbook:any) : Region[] {
       region: row['region'] as string,
       group: row['group'] as string,
       gps: 'n'!=row['gps'],
-      route: row['route'] as string,
+      routes: splitList(row['routes'] as string),
       waypoint: row['waypoint'] as string,
       rangemetres: row['rangemetres'] ? Number(row['rangemetres']) : 0,
       description: row['description'] as string,
       priority: row['priority'] ? Number(row['priority']) : 0,
       enabledatstart: 'n'!=row['enabledatstart'],
+      neighbours: splitList(row['neighbours'] as string),
       enable: splitList(row['enable'] as string),
       disable: splitList(row['disable'] as string),
       theme: row['theme'] as string,
