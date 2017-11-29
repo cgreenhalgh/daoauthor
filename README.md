@@ -13,3 +13,18 @@ Status: just starting...
 
 By Chris Greenhalgh <chris.greenhalgh@nottingham.ac.uk>
 Copyright (c) The University of Nottingham, 2017
+
+## Build
+
+```
+docker build -t daoauthor .
+```
+```
+docker run -it daoauthor
+```
+In container
+```
+npm install
+npm run-script build
+node dist/index.js data/mobile\ music\ ex1.1.xlsx
+```

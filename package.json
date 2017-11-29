@@ -1,0 +1,29 @@
+{
+	"name": "daoauthor",
+	"version": "0.1.0",
+	"description": "location-based audio authoring tool",
+	"main": "index.js",
+	"directories": {
+		"doc": "docs"
+	},
+	"scripts": {
+		"build": "tsc",
+		"dev": "tsc --watch & nodemon dist",
+		"tsc": "tsc",
+		"test":"echo \"Error: no test specified\" && exit 1"
+	},
+	"repository": {
+		"type": "git",
+		"url": "git+https://github.com/cgreenhalgh/daoauthor.git"
+	},
+	"author": "Chris Greenhalgh",
+	"license": "MIT",
+	"bugs": {
+		"url": "https://github.com/cgreenhalgh/daoauthor/issues"
+	},
+	"homepage": "https://github.com/cgreenhalgh/daoauthor#readme",
+	"dependencies": {
+		"@types/node":  "^8.0.53",
+		"xlsx": "^0.11.10"
+	}
+}
