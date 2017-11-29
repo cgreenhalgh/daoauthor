@@ -19,6 +19,8 @@ The standard values for `setting` are:
 - `description` - description of experience
 - `author` - author name
 - `version` - version of experience (string)
+- `outfile` - name of file to write 
+- `contextfile` - name of [daoplayer-style context file](https://github.com/cgreenhalgh/daoplayer/blob/master/docs/fileformat.md) to use to specify waypoints and routes
 
 ## regions
 

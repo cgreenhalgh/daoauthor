@@ -1,4 +1,7 @@
 import * as xlsx from 'xlsx'
+import * as fs from 'fs'
+import { Sheet, readSheet, Settings, readSettings, Region, readRegions } from './sheet'
+import * as daoplayer from './daoplayer'
 
 const TOOL = "daoauthor-1"
 
@@ -8,78 +11,6 @@ if (process.argv.length!=3) {
 }
 let excelfile = process.argv[2]
 console.log(`read ${ excelfile }`)
-
-// excel cell name from column,row (start from 0)
-function cellid(c:number,r:number): string {
-  let p = String(r+1)
-  let rec = (c) => {
-    p = String.fromCharCode( ('A'.charCodeAt(0))+(c % 26) ) + p
-    c = Math.floor (c/26)
-    if (c!=0)
-      rec( c-1 )
-  }
-  rec( c )
-  return p 
-}
-
-// generic spreadsheet sheet type
-interface Sheet {
-  headings: string[]
-  rows: any[]
-}
-
-// read generic representation of sheet
-function readSheet(sheet:any): Sheet {
-  let headings:string[] = []
-  for (let c=0; true; c++) {
-    let cell = sheet[cellid(c,0)]
-    if (!cell)
-      break
-    headings.push(cell.v)
-    //console.log(`Found heading ${cell.v} at column ${c}, ${cellid(c,0)}`)
-  }
-  let rows:any[] = []
-  for (let r=1; true; r++) {
-    let row = {}
-    let empty = true
-    for (let c=0; c<headings.length; c++) {
-      let cell = sheet[cellid(c,r)]
-      if (cell) {
-        row[headings[c]] = cell.v
-        empty = false
-      }
-    }
-    if (empty)
-      break
-    rows.push(row)
-  }
-  return { headings: headings, rows: rows}
-}
-
-// settings sheet values
-interface Settings {
-  tool?: string
-  title?: string
-  description?: string
-  author?: string
-  version?: string
-}
-
-// read settings in particular from sheet 'settings'
-function readSettings(workbook:any): Settings {
-  let s = workbook.Sheets['settings']
-  if ( !s) 
-    throw new Error(`no "settings" sheet in workbook ${excelfile}`)
-  let sheet = readSheet(s)
-  let settings: Settings = {}
-  for (let row of sheet.rows) {
-    if (row.value)
-      settings[row.setting] = row.value
-  }
-  return settings
-}
-
-
 
 try {
   let workbook = xlsx.readFile(excelfile)
@@ -92,6 +23,17 @@ try {
   let title = settings.title
   let version = settings.version
   console.log(`read "${title}" version ${version}`)
+  
+  let dp = daoplayer.init(settings)
+  
+  let regions = readRegions(workbook)
+  console.log(`read ${regions.length} regions`)
+  daoplayer.addRegions(dp, regions)
+  
+  if (settings.outfile) {
+    console.log(`write daoplayer file ${settings.outfile}`)
+    fs.writeFileSync( settings.outfile, JSON.stringify( dp, null, '  '), {encoding: 'utf8'} )
+  }
 } catch (err) {
   console.log(`Error: ${ err.message }`)
 }
