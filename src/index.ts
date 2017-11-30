@@ -1,6 +1,6 @@
 import * as xlsx from 'xlsx'
 import * as fs from 'fs'
-import { Sheet, readSheet, Settings, readSettings, Region, readRegions } from './sheet'
+import { Sheet, readSheet, Settings, readSettings, Region, readRegions, Theme, readThemes } from './sheet'
 import * as daoplayer from './daoplayer'
 
 const TOOL = "daoauthor-1"
@@ -29,6 +29,10 @@ try {
   let regions = readRegions(workbook)
   console.log(`read ${regions.length} regions`)
   daoplayer.addRegions(dp, regions)
+  
+  let themes = readThemes(workbook)
+  console.log(`read ${themes.length} themes`)
+  daoplayer.addThemes(dp, themes)
   
   if (settings.outfile) {
     console.log(`write daoplayer file ${settings.outfile}`)

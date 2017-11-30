@@ -77,6 +77,7 @@ The columns in this sheet specifically for a `level` are:
 The columns in this sheet specifically for a `file` (a single looped cell within a level) are:
 - `file`- name of the audio file. Currently .wav is recommended
 - `volume1` - initial volume of file
+Not yet supported:
 - `fadetimebeats` - optional time (beats) over which to fade to `volume2`; if omitted volume remains at `volume1`
 - `volme2` - volume after `fadetimebeats`, if specified (default is `volume1`)
 

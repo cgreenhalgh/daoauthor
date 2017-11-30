@@ -32,7 +32,9 @@ I'm not sure if all audio files in all themes are assembled onto a common set of
 
 ### Plan A
 
-All files/themes/levels on the same set of synchronized tracks.
+All files/levels for a theme on the same set of synchronized tracks. 
+Different themes on different tracks. 
+(Give author flexibility for now)
 
 Every section is from some valid end point (beat) of some level to the start of a (new or the same) level.
 
@@ -43,17 +45,6 @@ Every theme/level identified explicitly in a region is a possible entry point.
 Starting a new region will transition out of the old section (level) asap to the entry point for the new region.
 - How will it know if it is in an old region? hope they don't overlap?! sceneTime = 0? Jump immediately to pre-assembled transition?!
 - what about layer auto-changes within a region? will they confuse it?
-
-E.g.
-- _ -> a/1 (default start)
-- a/1(/16) -> a/1 (specified nextlevel)
-- a/1/4 -> _ (after given beat)
-- a/1/8 -> _
-- a/1/12 -> _
-- a/1/16 -> _
-- a/1/x -> a/2 (entry point in same group) - jump immediate to this to show what is happening?
-- a/2/16 -> a/2 (nextlevel)
-- _ -> a2
 
 One scene per level? or several levels per scene? 
 Try one scene per level...

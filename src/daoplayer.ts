@@ -1,5 +1,5 @@
 // daoplayer-specific stuff
-import { Settings, Region } from './sheet'
+import { Settings, Region, Theme, Level, LevelFile } from './sheet'
 
 
 export interface DaoMeta {
@@ -10,10 +10,41 @@ export interface DaoMeta {
   artist?:string
 }
 export interface DaoTrack {
-  
+  name: string
+  pauseIfSilent?: boolean // default false
+  files: DaoFileRef[]
+  sections?: DaoSection[]
+  unitTime?: number
+  maxDuration?: number
+  defaultNextSectionCost?: number
+  defaultEndCost?: number
+  title?: string
+  description?: string
 }
 export interface DaoTrackRef {
-  
+  name: string
+  volume: any // default 1, number or string (code)
+  pos: any // default current, number or string (code) evaluating to array of sceneTime,trackPos values
+  // prepare?: boolean // unused
+  update?: boolean // default true
+}
+export interface DaoFileRef {
+  path: string
+  trackPos?: number // default 0
+  filePos?: number // default 0
+  length?: number // default -1 => all
+  repeats?: number // default 1
+}
+export interface DaoSection {
+  name:string
+  trackPos?: number // default 0
+  length?: number // default next section; -1 => end of track
+  // startCost?: number
+  // endCost?: number
+  // endCostExtra?: number
+  // next?: {name,cosst}[]
+  title?: string
+  description?: string 
 }
 export interface DaoVars {
   [propName:string]: any
@@ -212,4 +243,65 @@ export function addRegions(dp: Daoplayer, regions: Region[]) {
     scene.onupdate = scene.onupdate + transitionCheck(region, scene, regions)
     dp.scenes.push(scene)
   }
+}
+
+function addTheme(dp: Daoplayer, theme: Theme) {
+  // theme -> track (more than one if concurrent files)
+  let tracks : DaoTrack[] = []
+  let track: DaoTrack = {
+    name: theme.id+':0',
+    files: [],
+    sections: [],
+    title: 'Theme '+theme.id+' track 0'
+  }
+  tracks.push(track)
+  let secondsPerBeat = 60.0 / theme.tempo
+  // level -> section
+  let trackPos = 0
+  for (let level of theme.levels) {
+    let length = level.beats*secondsPerBeat
+    let section : DaoSection = {
+      name: level.id,
+      title: 'Theme '+theme.id+' level '+level.id,
+      description: level.description,
+      trackPos: trackPos,
+      length: length
+    }
+    tracks[0].sections.push(section)
+    // files
+    for (let i=0; i<level.files.length; i++) {
+      let file = level.files[i]
+      if (i>=tracks.length) {
+        track = {
+          name: theme.id+':'+i,
+          files: [],
+          sections: [],
+          title: 'Theme '+theme.id+' track '+i
+        }
+        tracks.push(track)
+      }
+      track = tracks[i]
+      let fileRef:DaoFileRef = {
+        path: file.file,
+        trackPos: trackPos,
+        filePos: 0,
+        length: length,
+        repeats: 1
+      }
+      track.files.push(fileRef)
+    }
+    // no gap?!
+    trackPos += length
+  }
+  //for (let i=1; i<tracks.length; i++) 
+  // no clone?!
+  //tracks[i].sections = tracks[0].sections
+  for (let track of tracks)
+    dp.tracks.push(track)
+}
+
+export function addThemes(dp: Daoplayer, themes: Theme[]) {
+  // each theme becomes a set of tracks...
+  for (let theme of themes)
+    addTheme(dp, theme)
 }
