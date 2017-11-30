@@ -1,7 +1,7 @@
 import * as xlsx from 'xlsx'
 import * as fs from 'fs'
 import { Sheet, readSheet, Settings, readSettings, Region, readRegions, Theme, readThemes } from './sheet'
-import * as daoplayer from './daoplayer'
+import { DaoplayerGenerator } from './daoplayer'
 
 const TOOL = "daoauthor-1"
 
@@ -24,19 +24,20 @@ try {
   let version = settings.version
   console.log(`read "${title}" version ${version}`)
   
-  let dp = daoplayer.init(settings)
+  let daoplayer:DaoplayerGenerator = new DaoplayerGenerator()
+  daoplayer.init(settings)
   
   let regions = readRegions(workbook)
   console.log(`read ${regions.length} regions`)
-  daoplayer.addRegions(dp, regions)
+  daoplayer.addRegions(regions)
   
   let themes = readThemes(workbook)
   console.log(`read ${themes.length} themes`)
-  daoplayer.addThemes(dp, themes)
+  daoplayer.addThemes(themes)
   
   if (settings.outfile) {
     console.log(`write daoplayer file ${settings.outfile}`)
-    fs.writeFileSync( settings.outfile, JSON.stringify( dp, null, '  '), {encoding: 'utf8'} )
+    fs.writeFileSync( settings.outfile, JSON.stringify( daoplayer.getData(), null, '  '), {encoding: 'utf8'} )
   }
 } catch (err) {
   console.log(`Error: ${ err.message }`)

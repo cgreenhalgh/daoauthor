@@ -76,35 +76,6 @@ export interface Daoplayer {
 }
 
 const DEFAULT_SCENE = "_init"
-
-export function init(settings:Settings): Daoplayer {
-  let dp: Daoplayer = {
-    meta: {
-      mimetype: 'application/x-daoplayer-composition',
-      version: 1,
-      title: settings.title,
-      description: settings.description,
-      artist: settings.author
-    },
-    merge: [],
-    defaultScene: DEFAULT_SCENE,
-    tracks: [],
-    scenes: []
-  }
-  if (settings.contextfile)
-    dp.merge.push(settings.contextfile)
-  else 
-    console.log('Warning: no contextfile specified in settings')
-  return dp
-}
-
-function getRegion(regions: Region[], id: string): Region {
-  for (let region of regions)
-    if (id==region.region)
-      return region
-  return null
-}
-
 const VAR_ENABLED = "window.ren"
 
 interface RegionCheck {
@@ -118,6 +89,14 @@ interface RegionCheck {
 }
 
 const debug = true
+
+function getRegion(regions: Region[], id: string): Region {
+  for (let region of regions)
+    if (id==region.region)
+      return region
+  return null
+}
+
 
 // return javascript of transition check to add to onload/onupdate
 function transitionCheck(region: Region, scene: DaoScene, regions: Region[]): string {
@@ -203,105 +182,135 @@ function transitionCheck(region: Region, scene: DaoScene, regions: Region[]): st
   return code
 }
 
-export function addRegions(dp: Daoplayer, regions: Region[]) {
-  // add init region
-  let initscene:DaoScene = {
-    name: DEFAULT_SCENE,
-    partial: false,
-    title: 'Initialisation scene',
-    waypoints: {},
-    routes: {}
-  }
-  initscene.onload = VAR_ENABLED+'={}; '
-  for (let region of regions) {
-    // init enabled?
-    initscene.onload = initscene.onload + VAR_ENABLED+'['+JSON.stringify(region.region)+']='+region.enabledatstart+'; '
-  }
-  initscene.onload = initscene.onload + transitionCheck(null, initscene, regions)
-  // scenes enabled?
-  dp.scenes.push(initscene)
-  for (let region of regions) {
-    let scene:DaoScene = {
-      name: region.region+':default',
-      partial: false,
-      tracks: [],
-      title: `Default scene for region ${region.region}`,
-      updatePeriod: 1.0,
-      waypoints: {},
-      routes: {},
-      onload: "",
-      onupdate: ""
+export class DaoplayerGenerator {
+
+  dp: Daoplayer
+  
+  init(settings:Settings) {
+    this.dp = {
+        meta: {
+          mimetype: 'application/x-daoplayer-composition',
+          version: 1,
+          title: settings.title,
+          description: settings.description,
+          artist: settings.author
+        },
+        merge: [],
+        defaultScene: DEFAULT_SCENE,
+        tracks: [],
+        scenes: []
     }
-    if (debug)
-      scene.onload = scene.onload+'daoplayer.speak('+JSON.stringify('region '+region.region)+', true); '
-    // on load, enable/disable
-    for (let rname of region.enable)
-      scene.onload = scene.onload + VAR_ENABLED+'['+JSON.stringify(rname)+']=true; '
-    for (let rname of region.disable)
+    if (settings.contextfile) {
+      this.dp.merge.push(settings.contextfile)
+    } else {
+        console.log('Warning: no contextfile specified in settings')
+    }
+  }
+
+  addRegions(regions: Region[]) {
+    // add init region
+    let initscene:DaoScene = {
+        name: DEFAULT_SCENE,
+        partial: false,
+        title: 'Initialisation scene',
+        waypoints: {},
+        routes: {}
+    }
+    initscene.onload = VAR_ENABLED+'={}; '
+    for (let region of regions) {
+      // init enabled?
+      initscene.onload = initscene.onload + VAR_ENABLED+'['+JSON.stringify(region.region)+']='+region.enabledatstart+'; '
+    }
+    initscene.onload = initscene.onload + transitionCheck(null, initscene, regions)
+    // scenes enabled?
+    this.dp.scenes.push(initscene)
+    for (let region of regions) {
+      let scene:DaoScene = {
+          name: region.region+':default',
+          partial: false,
+          tracks: [],
+          title: `Default scene for region ${region.region}`,
+          updatePeriod: 1.0,
+          waypoints: {},
+          routes: {},
+          onload: "",
+          onupdate: ""
+      }
+      if (debug)
+        scene.onload = scene.onload+'daoplayer.speak('+JSON.stringify('region '+region.region)+', true); '
+      // on load, enable/disable
+      for (let rname of region.enable)
+        scene.onload = scene.onload + VAR_ENABLED+'['+JSON.stringify(rname)+']=true; '
+      for (let rname of region.disable)
         scene.onload = scene.onload + VAR_ENABLED+'['+JSON.stringify(rname)+']=false; '
-    // transition check
-    scene.onupdate = scene.onupdate + transitionCheck(region, scene, regions)
-    dp.scenes.push(scene)
-  }
-}
-
-function addTheme(dp: Daoplayer, theme: Theme) {
-  // theme -> track (more than one if concurrent files)
-  let tracks : DaoTrack[] = []
-  let track: DaoTrack = {
-    name: theme.id+':0',
-    files: [],
-    sections: [],
-    title: 'Theme '+theme.id+' track 0'
-  }
-  tracks.push(track)
-  let secondsPerBeat = 60.0 / theme.tempo
-  // level -> section
-  let trackPos = 0
-  for (let level of theme.levels) {
-    let length = level.beats*secondsPerBeat
-    let section : DaoSection = {
-      name: level.id,
-      title: 'Theme '+theme.id+' level '+level.id,
-      description: level.description,
-      trackPos: trackPos,
-      length: length
+      // transition check
+      scene.onupdate = scene.onupdate + transitionCheck(region, scene, regions)
+      this.dp.scenes.push(scene)
     }
-    tracks[0].sections.push(section)
-    // files
-    for (let i=0; i<level.files.length; i++) {
-      let file = level.files[i]
-      if (i>=tracks.length) {
-        track = {
-          name: theme.id+':'+i,
-          files: [],
-          sections: [],
-          title: 'Theme '+theme.id+' track '+i
+  }
+
+  addTheme(theme: Theme) {
+    // theme -> track (more than one if concurrent files)
+    let tracks : DaoTrack[] = []
+    let track: DaoTrack = {
+        name: theme.id+':0',
+        files: [],
+        sections: [],
+        title: 'Theme '+theme.id+' track 0'
+    }
+    tracks.push(track)
+    let secondsPerBeat = 60.0 / theme.tempo
+    // level -> section
+    let trackPos = 0
+    for (let level of theme.levels) {
+      let length = level.beats*secondsPerBeat
+      let section : DaoSection = {
+          name: level.id,
+          title: 'Theme '+theme.id+' level '+level.id,
+          description: level.description,
+          trackPos: trackPos,
+          length: length
+      }
+      tracks[0].sections.push(section)
+      // files
+      for (let i=0; i<level.files.length; i++) {
+        let file = level.files[i]
+        if (i>=tracks.length) {
+          track = {
+              name: theme.id+':'+i,
+              files: [],
+              sections: [],
+              title: 'Theme '+theme.id+' track '+i
+          }
+          tracks.push(track)
         }
-        tracks.push(track)
+        track = tracks[i]
+        let fileRef:DaoFileRef = {
+            path: file.file,
+            trackPos: trackPos,
+            filePos: 0,
+            length: length,
+            repeats: 1
+        }
+        track.files.push(fileRef)
       }
-      track = tracks[i]
-      let fileRef:DaoFileRef = {
-        path: file.file,
-        trackPos: trackPos,
-        filePos: 0,
-        length: length,
-        repeats: 1
-      }
-      track.files.push(fileRef)
+      // no gap?!
+          trackPos += length
     }
-    // no gap?!
-    trackPos += length
+    //for (let i=1; i<tracks.length; i++) 
+    // no clone?!
+    //tracks[i].sections = tracks[0].sections
+    for (let track of tracks)
+      this.dp.tracks.push(track)
   }
-  //for (let i=1; i<tracks.length; i++) 
-  // no clone?!
-  //tracks[i].sections = tracks[0].sections
-  for (let track of tracks)
-    dp.tracks.push(track)
-}
 
-export function addThemes(dp: Daoplayer, themes: Theme[]) {
-  // each theme becomes a set of tracks...
-  for (let theme of themes)
-    addTheme(dp, theme)
+  addThemes(themes: Theme[]) {
+    // each theme becomes a set of tracks...
+    for (let theme of themes)
+      this.addTheme(theme)
+  }
+  
+  getData(): Daoplayer {
+    return this.dp
+  }
 }
