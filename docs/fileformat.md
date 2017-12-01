@@ -6,7 +6,6 @@ Following sheets should exist (details below):
 - `settings` - general settings
 - `regions` - high-level regions and associated treatments
 - `themes` - themes and levels, i.e. lower-level specifications of audio loops
-- `oneshots` - one-off (non-looped) audio samples
 - `transitions` - specifications of theme/level transitions
 
 ## settings
@@ -47,8 +46,9 @@ The columns in this sheet which define a `region` are:
 - `neighbours` - comma-separated list of regions to which transitions are expected
 - `enable` - comma-separated list of regions which should be enabled when this region becomes active
 - `disable` - comma-separated list of regions which should be disabled when this region becomes active
-- `theme` and `level` - theme and level that are transitioned to when this region becomes active
-- `oneshot` - name of oneshot audio that is triggered when this region becomes active
+- `theme` and `level` - theme and level that are transitioned to when this region becomes active 
+
+Note: can `level` have multiple values? If so, why? random choice?!
 
 ## themes
 
@@ -59,41 +59,49 @@ In general missing values inherit the value from first non-missing value above.
 Note:
 - a `theme` is a set of related musical "levels" or treatments
 - all levels within a theme should have the same tempo
-- a `level` is a musical treatment comprising a set of audio loops to play
-- files and levels are played in sync
+- a `level` is a musical treatment comprising a set of tracks to play (repeatedly)
+- a `track` is one or more audio files to play each time the level loops
+- a track with more than one audio file can play them in sequence or play one chosen at random
+- tracks and levels are played in sync
 - transitions between levels only occur at specified beats
+- a `oneshot` track does not end when the level ends or repeat if the level repeats
 
 The columns in this sheet specifically for a `theme` are:
-- `theme` - theme name/ID, i.e. group of related music levels
+- `theme:` - theme name/ID, i.e. group of related music levels (note trailing colon)
+- `description` - theme description (string, optional)
 - `tempo` - tempo, should be specified only for `theme` as a whole
 
 The columns in this sheet specifically for a `level` are:
-- `level` - level name/ID, i.e. a specific set of loops making up a musical treatment
+- `level:` - level name/ID, i.e. a specific set of loops making up a musical treatment (note trailing colon)
 - `description` - (string, optional)
-- `nextlevel` - name/ID of level to transition to when this level has completed. To loop a level put its ID here. 
-- `beats` - length of level in beats.
+- `nextlevel` - comma-separated list of names/IDs of level(s) to transition to when this level has completed. To loop a level put its ID here. 
+- `beats` - length of level in beats (required unless `seconds` is specified).
+- `seconds` - length of level in seconds (optional, overrides `beats` if specified)
 - `endbeats` - comma-separated list of beat numbers after which a transition to another level can take place
 
-The columns in this sheet specifically for a `file` (a single looped cell within a level) are:
-- `file`- name of the audio file. Currently .wav is recommended
+The columns in this sheet specifically for a `track` (a single looped cell within a level) are:
+- `track:` - track name/ID, required for oneshot tracks, optional otherwise
+- `description` - track description
+- `type` - track type, default `sequence`; one of `sequence` (all files played in order), `oneshot` (file(s) played once in non-looping track), `random` (files selected at random), `shuffle` (files played in a random order)
+
+There are then any number of consecutively numbered `fileN:` sections (i.e. starting with columns `file1:`, `file2:`, etc.)
+
+The columns in this sheet specifically for a `fileN:` (a single file within a track and level) are:
+- `fileN:`- name of the audio file. Currently .wav is recommended
+- `beats` - length of file in beats (defaults to level length in beats)
+- `seconds` - length of file in seconds (optional, overrides `beats` if specified)
+- `delaybeats` - delay before start of file, beats (default 0); in a sequence this is relative to the end of the previous file, otherwise to the start of the level.
+- `delayseconds` - delay before start of file, seconds (overriders delaybeats if specified)
 - `volume1` - initial volume of file
+
 Not yet supported:
-- `fadetimebeats` - optional time (beats) over which to fade to `volume2`; if omitted volume remains at `volume1`
+- `fadebeats` - optional time (beats) over which to fade to `volume2`; if fadebeats and fadeseconds omitted volume remains at `volume1`
+- `fadesconds` - optional time (seconds) over which to fade to `volume2`; if specified overrides fadebeats
 - `volme2` - volume after `fadetimebeats`, if specified (default is `volume1`)
 
-## oneshots
-
-Each row is an audio same to be played to completion. 
-Can be specified in a region (when the region becomes active) 
-or in a transition (when a transition occurs).
-
-The colums in this sheet are:
-- `oneshot` - name/ID Of oneshot
-- `file`- audio file name
-- `volume` - volume to play file
-- `seconds` - length of file in seconds
-
 ## transitions
+
+NOT YET SUPPORTED; SUBJECT TO CHANGE
 
 Each row specifies how a theme (or layer) transition should be handled.
 
