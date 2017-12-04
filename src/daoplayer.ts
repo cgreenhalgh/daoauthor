@@ -183,7 +183,7 @@ function transitionCheck(region: Region, scene: DaoScene, regions: Region[]): st
     code = code+'if ('+VAR_ENABLED+'['+JSON.stringify(check.toRegion)+'] && '
     if (check.waypoint) {
       scene.waypoints[check.waypoint] = check.waypoint
-      code = code+'waypoints['+JSON.stringify(check.waypoint)+']!==undefined && waypoints['+JSON.stringify(check.waypoint)+']<'+check.rangemetres
+      code = code+'waypoints['+JSON.stringify(check.waypoint)+'].distance!==undefined && waypoints['+JSON.stringify(check.waypoint)+'].distance<'+check.rangemetres
     } else if (check.route) {
       scene.routes[check.route] = check.route
       code = code+'routes['+JSON.stringify(check.route)+'].nearest'
@@ -237,7 +237,8 @@ export class DaoplayerGenerator {
         partial: false,
         title: 'Initialisation scene',
         waypoints: {},
-        routes: {}
+        routes: {},
+        updatePeriod: 1.0
     }
     initscene.onload = VAR_ENABLED+'={}; '
     for (let region of regions) {
@@ -245,11 +246,12 @@ export class DaoplayerGenerator {
       initscene.onload = initscene.onload + VAR_ENABLED+'['+JSON.stringify(region.region)+']='+region.enabledatstart+'; '
     }
     initscene.onload = initscene.onload + transitionCheck(null, initscene, regions)
+    initscene.onupdate = transitionCheck(null, initscene, regions)
     // scenes enabled?
     this.dp.scenes.push(initscene)
     for (let region of regions) {
       let scene:DaoScene = {
-          name: region.region+':default',
+          name: region.region,
           partial: false,
           tracks: [],
           title: `Default scene for region ${region.region}`,
@@ -304,7 +306,9 @@ export class DaoplayerGenerator {
         name: theme.id+':',
         files: [],
         sections: [],
-        title: 'Theme '+theme.id+' track 0'
+        title: 'Theme '+theme.id+' track 0',
+        unitTime: 0,
+        maxDuration: 0
     }
     // level -> section
     let trackPos = 0
