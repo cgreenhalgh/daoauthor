@@ -82,7 +82,7 @@ The columns in this sheet specifically for a `level` are:
 The columns in this sheet specifically for a `track` (a single looped cell within a level) are:
 - `track:` - track name/ID, required for oneshot tracks, optional otherwise
 - `description` - track description
-- `type` - track type, default `sequence`; one of `sequence` (all files played in order), `oneshot` (file(s) played once in non-looping track), `random` (files selected at random), `shuffle` (files played in a random order)
+- `type` - track type, default `sequence`; one of `sequence` (all files played in order), `oneshot` (file(s) played once in non-looping track), `shuffle` (files played in a random order), `random` (currently a synonym for shuffle)
 
 There are then any number of consecutively numbered `fileN:` sections (i.e. starting with columns `file1:`, `file2:`, etc.)
 
@@ -96,7 +96,7 @@ The columns in this sheet specifically for a `fileN:` (a single file within a tr
 
 Not yet supported:
 - `fadebeats` - optional time (beats) over which to fade to `volume2`; if fadebeats and fadeseconds omitted volume remains at `volume1`
-- `fadesconds` - optional time (seconds) over which to fade to `volume2`; if specified overrides fadebeats
+- `fadeseconds` - optional time (seconds) over which to fade to `volume2`; if specified overrides fadebeats
 - `volme2` - volume after `fadetimebeats`, if specified (default is `volume1`)
 
 ## transitions

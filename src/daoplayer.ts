@@ -1,7 +1,7 @@
 // daoplayer-specific stuff
-import { Settings, Region, Theme, Level, LevelFile } from './sheet'
+import { Settings, Region, Theme, Level, Track, TrackType, TrackFile } from './sheet'
 
-
+// daoplayer JSON file format
 export interface DaoMeta {
   mimetype:string
   version:number
@@ -78,6 +78,7 @@ export interface Daoplayer {
 const DEFAULT_SCENE = "_init"
 const VAR_ENABLED = "window.ren"
 
+// info about a region check
 interface RegionCheck {
   route?: string
   waypoint?: string
@@ -88,7 +89,28 @@ interface RegionCheck {
   gps: boolean
 }
 
+// info about a track in construction
+interface TrackInfo {
+  track: DaoTrack
+  nextTrackPos?: number
+}
+
+interface TrackInfoMap {
+  [propName:string]: TrackInfo
+}
+
+// info about a level permutation
+interface LevelPermutation {
+  // track name -> sequence of files
+  [propName:string]: TrackFile[]
+}
+
 const debug = true
+
+const SECTION_GAP = 1
+
+const SAMPLE_RATE = 44100
+const SMALL_TIME = 0.5/SAMPLE_RATE
 
 function getRegion(regions: Region[], id: string): Region {
   for (let region of regions)
@@ -185,6 +207,7 @@ function transitionCheck(region: Region, scene: DaoScene, regions: Region[]): st
 export class DaoplayerGenerator {
 
   dp: Daoplayer
+  tracks: TrackInfoMap = {}
   
   init(settings:Settings) {
     this.dp = {
@@ -249,59 +272,153 @@ export class DaoplayerGenerator {
     }
   }
 
+  // get permutations of N indexes 0..N-1
+  getPermutations(n: number) : number[][] {
+    let getPs = (i: number, ps: number[][]): number[][] => {
+      let nps: number[][] = []
+      for (let p of ps) {
+        for (let j=0; j<=p.length; j++) {
+          let np = p.slice()
+          np.splice(j, 0, i)
+          nps.push(np)
+        }
+      }
+      return nps
+    }
+    if (n<1)
+      return []
+    let ps = [[0]]
+    for (let i=1; i<n; i++) {
+      ps = getPs(i, ps)
+      //console.log(`getPs ${i} -> ${ps.length}`, ps)
+    }
+    return ps
+  }
+  
   addTheme(theme: Theme) {
+    //console.log('add themes...')
     // theme -> track (more than one if concurrent files)
-    let tracks : DaoTrack[] = []
-    let track: DaoTrack = {
-        name: theme.id+':0',
+    let themeTracks : TrackInfoMap = {}
+    // give every track a placeholder track for level/section holding
+    let baseTrack: DaoTrack = {
+        name: theme.id+':',
         files: [],
         sections: [],
         title: 'Theme '+theme.id+' track 0'
     }
-    tracks.push(track)
-    let secondsPerBeat = 60.0 / theme.tempo
     // level -> section
     let trackPos = 0
+    let sections: DaoSection[] = baseTrack.sections
     for (let level of theme.levels) {
-      let length = level.beats*secondsPerBeat
-      let section : DaoSection = {
-          name: level.id,
-          title: 'Theme '+theme.id+' level '+level.id,
-          description: level.description,
-          trackPos: trackPos,
-          length: length
+      // permutations... (single, empty)
+      let permutations: LevelPermutation[] = [{}]
+      // expand permutations for each track
+      nexttrack:
+      for (let track of level.tracks) {
+        //console.log(`theme ${theme.id} level ${level.id} track ${track.id}, ${permutations.length} permutations so far`)
+        let options: TrackFile[][] = []
+        switch (track.tracktype) {
+          case TrackType.Oneshot:
+            // TODO
+            console.log(`Warning: ignored oneshot track "${track.id}" in theme ${theme.id} level ${level.id} - not yet supported`)
+            continue nexttrack
+          case TrackType.Sequence:
+            // all in order
+            options = [track.files]
+            break
+          case TrackType.Shuffle:
+            options = this.getPermutations(track.files.length).map((ixs) => ixs.map((ix) => track.files[ix]))
+            //console.log(`shuffle ${track.files.length} files -> ${options.length} options`, options)
+            break
+        }
+        if (options.length>0) {
+          let newPermutations: LevelPermutation[] = []
+          for (let permuation of permutations) {
+            for (let option of options) {
+              let np = { ...permuation }
+              np[track.id] = option
+              newPermutations.push(np)
+            }
+          }
+          permutations = newPermutations
+        }
       }
-      tracks[0].sections.push(section)
-      // files
-      for (let i=0; i<level.files.length; i++) {
-        let file = level.files[i]
-        if (i>=tracks.length) {
-          track = {
-              name: theme.id+':'+i,
+      if (permutations.length>1) {
+        console.log(`got ${permutations.length} permutations for theme ${theme.id} level ${level.id}`)
+      }
+      // make tracks
+      for (let track of level.tracks) {
+        if (track.tracktype==TrackType.Oneshot) {
+          continue
+        }
+        let trackName = theme.id+':'+track.id
+        let trackInfo : TrackInfo = themeTracks[trackName]
+        if (!trackInfo) {
+          let daotrack : DaoTrack = {
+              name: trackName,
               files: [],
               sections: [],
-              title: 'Theme '+theme.id+' track '+i
+              title: 'Theme '+theme.id+' track '+track.id
           }
-          tracks.push(track)
+          trackInfo = { 
+            track: daotrack
+          }
+          themeTracks[trackName] = trackInfo
         }
-        track = tracks[i]
-        let fileRef:DaoFileRef = {
-            path: file.file,
-            trackPos: trackPos,
-            filePos: 0,
-            length: length,
-            repeats: 1
-        }
-        track.files.push(fileRef)
       }
+      // track permutations
+      for (let pi=0; pi<permutations.length; pi++) {
+        let permutation = permutations[pi]
+        let section : DaoSection = {
+            name: level.id+':P'+pi,
+            title: 'Theme '+theme.id+' level '+level.id+(permutations.length>1 ? ' permutation '+pi : ''),
+            description: level.description+(permutations.length>1 ? ' (permutation '+pi+')' : ''),
+            trackPos: trackPos,
+            length: level.seconds
+        }
+        sections.push(section)
+        for (let track of level.tracks) {
+          if (track.tracktype==TrackType.Oneshot) {
+            continue
+          }
+          let fileTrackPos = trackPos
+          let trackName = theme.id+':'+track.id
+          let trackInfo : TrackInfo = themeTracks[trackName]
+          for (let file of permutation[track.id]) {
+            fileTrackPos += file.delayseconds
+            if ( fileTrackPos>= trackPos+level.seconds+SMALL_TIME) {
+              console.log(`Warning: track ${track.id} file "${file.file}" starts after end of theme ${theme.id} level ${level.id}`)
+              continue
+            }
+            let length = file.seconds
+            if ( fileTrackPos+length > trackPos+level.seconds+SMALL_TIME ) {
+              length = trackPos+level.seconds - fileTrackPos
+              console.log(`Warning: track ${track.id} file "${file.file}" truncated at ${length}/${file.seconds} seconds by end of theme ${theme.id} level ${level.id}`)
+            }
+            let fileRef:DaoFileRef = {
+                path: file.file,
+                trackPos: fileTrackPos,
+                filePos: 0,
+                length: length,
+                repeats: 1
+            }
+            trackInfo.track.files.push(fileRef)
+            // TODO: volume1
+            fileTrackPos += length
+          } // file
+        } // track
+        // extra second for debug ?!
+        trackPos += level.seconds+SECTION_GAP
+      } // permutation
       // no gap?!
-          trackPos += length
     }
     //for (let i=1; i<tracks.length; i++) 
     // no clone?!
     //tracks[i].sections = tracks[0].sections
-    for (let track of tracks)
-      this.dp.tracks.push(track)
+    this.dp.tracks.push(baseTrack)
+    for (let ti in themeTracks) {
+      this.dp.tracks.push(themeTracks[ti].track)
+    }
   }
 
   addThemes(themes: Theme[]) {

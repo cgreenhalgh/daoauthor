@@ -14,31 +14,53 @@ function cellid(c:number,r:number): string {
   return p 
 }
 
+export interface Row {
+  [propName:string]: string
+}
 // generic spreadsheet sheet type
 export interface Sheet {
   headings: string[]
-  rows: any[]
+  rows: Row[]
 }
 
 // read generic representation of sheet
 export function readSheet(sheet:any): Sheet {
   let headings:string[] = []
+  let prefix = ''
   for (let c=0; true; c++) {
     let cell = sheet[cellid(c,0)]
     if (!cell)
       break
-    headings.push(cell.v)
+    let heading = String(cell.v).trim()
+    // heading with ':' makes that a prefix added to subsequent column names
+    let ix = heading.indexOf(':')
+    if (ix>=0) {
+      prefix = heading.substring(0, ix)
+      let suffix = heading.substring(ix+1)
+      if (prefix.length>0 && suffix.length>0) {
+        headings.push(prefix+'_'+suffix)
+      } else {
+        headings.push(prefix+suffix)
+      }
+    } else if (prefix.length>0) {
+      headings.push(prefix+'_'+heading)
+    } else {
+      headings.push(heading)
+    }
     //console.log(`Found heading ${cell.v} at column ${c}, ${cellid(c,0)}`)
   }
-  let rows:any[] = []
+  let rows:Row[] = []
   for (let r=1; true; r++) {
-    let row = {}
+    let row:Row = {}
     let empty = true
     for (let c=0; c<headings.length; c++) {
       let cell = sheet[cellid(c,r)]
       if (cell) {
-        row[headings[c]] = cell.v
-        empty = false
+        let value = String(cell.v).trim()
+        if (value.length>0) {
+          row[headings[c]] = value
+          empty = false
+        }
       }
     }
     if (empty)
@@ -111,35 +133,41 @@ export function readRegions(workbook:any) : Region[] {
   }
   let sheet = readSheet(s)
   let regions: Region[] = []
-  for (let row of sheet.rows) {
-    if (!row['region']) {
-      console.log(`Error: missing "region" name`)
-      continue
+  for (let ri=0; ri<sheet.rows.length; ri++) {
+    let row = sheet.rows[ri]
+    //console.log(row)
+    let id = row['region']
+    if (!id) {
+      console.log(`Warning: missing "region" name at row ${ri+2}`)
+      id = "_R"+(ri+2)
     }
     if (!row['theme']) {
-      console.log(`Error: region "${row.region}" missing "theme"`)
-      continue;
+      console.log(`Error: region "${row.region}" missing "theme" at row ${ri+2}`)
+      //continue;
     }
     if (!row['level']) {
-      console.log(`Error: region "${row.region}" missing "level"`)
-      continue;
+      console.log(`Error: region "${row.region}" missing "level" at row ${ri+2}`)
+      //continue;
+    }
+    if (row['waypoint'] && !row['rangemetres']) {
+      console.log(`Error: region "${row.region}" has waypoint "${row.waypoint}" but no "rangemetres" at row ${ri+2}`)
     }
     regions.push({
-      region: row['region'] as string,
-      group: row['group'] as string,
+      region: id,
+      group: row['group'],
       gps: 'n'!=row['gps'],
-      routes: splitList(row['routes'] as string),
-      waypoint: row['waypoint'] as string,
+      routes: splitList(row['routes']),
+      waypoint: row['waypoint'],
       rangemetres: row['rangemetres'] ? Number(row['rangemetres']) : 0,
-      description: row['description'] as string,
+      description: row['description'],
       priority: row['priority'] ? Number(row['priority']) : 0,
       enabledatstart: 'n'!=row['enabledatstart'],
-      neighbours: splitList(row['neighbours'] as string),
-      enable: splitList(row['enable'] as string),
-      disable: splitList(row['disable'] as string),
-      theme: row['theme'] as string,
-      level: row['level'] as string,
-      oneshot: row['oneshot'] ? row['oneshot'] as string : null
+      neighbours: splitList(row['neighbours']),
+      enable: splitList(row['enable']),
+      disable: splitList(row['disable']),
+      theme: row['theme'],
+      level: row['level'],
+      oneshot: row['oneshot'] ? row['oneshot'] : null
       })
   }
   return regions
@@ -147,22 +175,43 @@ export function readRegions(workbook:any) : Region[] {
 
 export interface Theme {
   id: string
+  description?: string
   tempo: number
   levels: Level[]
 }
 export interface Level {
   theme: Theme
   id: string
-  description: string
-  nextlevel?: string
-  beats: number
+  description?: string
+  nextlevel: string[]
+  beats?: number
+  seconds: number
   endbeats: number[]
-  files: LevelFile[]
+  tracks: Track[]
 }
-export interface LevelFile {
-  file: string
+export enum TrackType {
+  Sequence = 0,
+  Oneshot,
+  //Random,
+  Shuffle
+}
+export interface Track {
+  level: Level
+  id: string
+  description?: string
+  tracktype: TrackType
+  files: TrackFile[]
+}
+
+export interface TrackFile {
+  file: string,
+  beats?: number
+  seconds: number
+  delaybeats?: number
+  delayseconds: number
   volume1: number
-  fadetimebeats?: number
+  fadebeats?: number
+  fadeseconds?: number
   volume2?: number
 }
 
@@ -175,48 +224,109 @@ export function readThemes(workbook:any) : Theme[] {
   let themes: Theme[] = []
   let theme: Theme = null
   let level: Level = null
+  let track: Track = null
   for (let row of sheet.rows) {
+    //console.log(row)
     if (row['theme']) {
-      if (!row['tempo']) 
+      if (!row['theme_tempo']) 
         console.log(`Error: theme "${row.theme}" has no "tempo"`)
       theme = {
-        id: row['theme'] as string,
-        tempo: row['tempo'] ? Number(row['tempo'] as string) : 120,
+        id: row['theme'].toLowerCase(),
+        description: row['theme'],
+        tempo: row['theme_tempo'] ? Number(row['theme_tempo']) : 120,
         levels: []
       }
+      for (let t of themes) {
+        if (t.id == theme.id) {
+          console.log(`Error: duplicate theme "${theme.id}"`)      
+        }
+      }
       themes.push(theme)
+      level = null
+      track = null
     } // theme
     if (row['level']) {
       if (!theme){
         console.log(`Error: level "${row.level}" found before any theme`)
         continue
       }
-      if (!row['beats']) {
-        console.log(`Error: theme "${row.theme}" level "${row.level}" has no length "beats" specified`)
+      if (!row['level_beats'] && !row['level_seconds']) {
+        console.log(`Error: theme "${theme.id}" level "${row.level}" has no length "beats" or "seconds" specified`)
       }
       level = {
         theme: theme,
-        id: row['level'] as string,
-        description: row['description'] as string,
-        nextlevel: row['nextlevel'] as string,
-        beats: row['beats'] ? Number(row['beats'] as string) : 0,
-        endbeats: splitList(row['endbeats']).map((b) => Number(b)),
-        files: []
+        id: row['level'].toLowerCase(),
+        description: row['level_description'],
+        nextlevel: splitList(row['level_nextlevel']),
+        beats: row['level_beats'] ? Number(row['level_beats']) : null,
+        seconds: row['level_seconds'] ? Number(row['level_seconds']) : Number(row['level_beats'])*60/theme.tempo,
+        endbeats: splitList(row['level_endbeats']).map((b) => Number(b)),
+        tracks: []
+      }
+      for (let l of theme.levels) {
+        if (l.id == level.id) {
+          console.log(`Error: duplicate level "${level.id}" in theme ${theme.id}`)
+        }
       }
       theme.levels.push(level)
+      track = null
     } // level
-    if (row['file']) {
+    if (row['track']) {
       if (!level) {
-        console.log(`Error: file "${row.file}" found before any theme level`)
+        console.log(`Error: track "${row.track}" found before level in theme ${theme.id}`)
         continue
       }
-      let file : LevelFile = {
-        file: row['file'],
-        volume1: row['volume1'] ? Number(row['volume1'] as string) : 1,
-        fadetimebeats: row['fadetimebeats'] ? Number(row['fadetimebeats'] as string) : null,
-        volume2: row['volume2'] ? Number(row['volume2'] as string) : null
+      let tracktype = TrackType.Sequence
+      let ttname = row['track_type'] ? row['track_type'].toLowerCase() : 'sequence'
+      if ('sequence'==ttname)
+        tracktype = TrackType.Sequence
+      else if ('oneshot'==ttname)
+        tracktype = TrackType.Oneshot
+      else if ('random'==ttname) {
+        //console.log(`Note: track type "random" treated as "shuffle" in track "${row.track}" in theme ${theme.id} level ${level.id}`)
+        tracktype = TrackType.Shuffle
+      } else if ('shuffle'==ttname)
+        tracktype = TrackType.Shuffle
+      else {
+        console.log(`Error: track "${row.track}" in theme ${theme.id} level ${level.id} has unknown "type": "${row.track_type}"`)
+        tracktype = TrackType.Sequence
       }
-      level.files.push(file)
+      track = {
+        level: level,
+        id: row['track'].toLowerCase(),
+        description: row['track_description'],
+        tracktype: tracktype,
+        files: []
+      }
+      for (let t of level.tracks) {
+        if (t.id == track.id) {
+          console.log(`Error: duplicate track "${track.id}" in theme ${theme.id} level ${level.id}`)
+        }
+      }
+      level.tracks.push(track)
+    }// track
+    for (let i=1, prefix='file'+i; row[prefix]; i++, prefix='file'+i) {
+      //console.log('file '+prefix)
+      if (!track) {
+        console.log(`Error: file ${i} found before track in theme ${theme.id} level ${level.id}`)
+        continue
+      }
+      // should this use level.seconds?!
+      let beats = row[prefix+'_beats'] ? Number(row[prefix+'_beats']) : level.beats
+      let delaybeats = row[prefix+'_delaybeats'] ? Number(row[prefix+'_delaybeats']) : 0
+      let fadebeats = row[prefix+'_fadebeats'] ? Number(row[prefix+'_fadebeats']) : null
+      let file : TrackFile = {
+        file: row[prefix],
+        beats: beats,
+        seconds: row[prefix+'_seconds'] ? Number(row[prefix+'_seconds']) : (beats ? beats*60/theme.tempo : level.seconds),
+        delaybeats: delaybeats,
+        delayseconds: row[prefix+'_delayseconds'] ? Number(row[prefix+'_delayseconds']) : delaybeats*60/theme.tempo,
+        volume1: row[prefix+'_volume1'] ? Number(row[prefix+'_volume1']) : 1,
+        fadebeats: fadebeats,
+        fadeseconds: row[prefix+'_fadeseconds'] ? Number(row[prefix+'_fadeseconds']) : (fadebeats ? fadebeats*60/theme.tempo : null),
+        volume2: row[prefix+'_volume2'] ? Number(row[prefix+'_volume2']) : null
+      }
+      track.files.push(file)
     } // file
   } // row
   return themes
