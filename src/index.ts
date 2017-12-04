@@ -27,14 +27,14 @@ try {
   let daoplayer:DaoplayerGenerator = new DaoplayerGenerator()
   daoplayer.init(settings)
   
+  let themes = readThemes(workbook)
+  console.log(`read ${themes.length} themes`)
+  daoplayer.addThemes(themes)
+  
   let regions = readRegions(workbook)
   console.log(`read ${regions.length} regions`)
   daoplayer.addRegions(regions)
   console.log(`added ${regions.length} regions`)
-  
-  let themes = readThemes(workbook)
-  console.log(`read ${themes.length} themes`)
-  daoplayer.addThemes(themes)
   
   if (settings.outfile) {
     console.log(`write daoplayer file ${settings.outfile}`)

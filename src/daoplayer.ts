@@ -89,10 +89,18 @@ interface RegionCheck {
   gps: boolean
 }
 
+interface SectionMap {
+  // key is level name
+  [propName:string]: DaoSection[]
+}
+
 // info about a track in construction
 interface TrackInfo {
-  track: DaoTrack
+  theme: Theme
+  baseTrack: boolean
+  daotrack: DaoTrack
   nextTrackPos?: number
+  levelSections: SectionMap
 }
 
 interface TrackInfoMap {
@@ -209,6 +217,7 @@ export class DaoplayerGenerator {
 
   dp: Daoplayer
   tracks: TrackInfoMap = {}
+  themes: Theme[]
   
   init(settings:Settings) {
     this.dp = {
@@ -229,6 +238,23 @@ export class DaoplayerGenerator {
     } else {
         console.log('Warning: no contextfile specified in settings')
     }
+  }
+    
+  getTheme(id:string) : Theme {
+    for (let theme of this.themes) {
+      if (theme.id == id)
+        return theme
+    }
+    return null
+  }
+  getLevel(theme:Theme, id:string) : Level {
+    if (!theme)
+      return null
+    for (let level of theme.levels) {
+      if (level.id == id)
+        return level
+    }
+    return null
   }
 
   addRegions(regions: Region[]) {
@@ -272,6 +298,50 @@ export class DaoplayerGenerator {
         scene.onload = scene.onload + VAR_ENABLED+'['+JSON.stringify(rname)+']=false; '
       // transition check
       scene.onupdate = scene.onupdate + transitionCheck(region, scene, regions)
+        
+      // jump to theme/level
+      // TODO transition
+      if (region.theme && region.level) {
+        let theme = this.getTheme(region.theme)
+        let level = this.getLevel(theme, region.level)
+        if (!theme) {
+          console.log(`Error: region ${region.region} refers unknown theme "${region.theme}"`)
+        } else if (!level) {
+          console.log(`Error: region ${region.region} refers to unknown level "${region.level}" of theme ${region.theme}`)
+        } else {
+          let baseTrackInfo = this.tracks[this.getBaseTrackName(theme)]
+          if (!baseTrackInfo) {
+            console.log(`Internal error: could not find base track for theme ${theme.id}`)
+            process.exit(-1)
+          }
+          let sections = baseTrackInfo.levelSections[level.id]
+          if (!sections) {
+            console.log(`Internal error: could not find levelSections for level ${level.id} in base track for theme ${theme.id}`)
+            process.exit(-1)
+          }
+          if (sections.length==0) {
+            console.log(`Internal error: no section(s) found for level ${level.id} in base track for theme ${theme.id}`)
+            process.exit(-1)
+          }
+          // TODO random
+          let section = sections[0]
+          // level -> section
+          for (let trackName in this.tracks) {
+            let trackInfo = this.tracks[trackName]
+            if (trackInfo.theme!==theme) {
+              // diff theme - default to off/stop
+            } else {
+              // same theme
+              let trackRef : DaoTrackRef = {
+                name: trackInfo.daotrack.name,
+                volume: 1, // TODO: volume from file(s)
+                pos: section.trackPos // TODO: next section
+              }
+              scene.tracks.push(trackRef)
+            }
+          }
+        } // theme & level found
+      } // theme & level set
       this.dp.scenes.push(scene)
     }
   }
@@ -299,19 +369,31 @@ export class DaoplayerGenerator {
     return ps
   }
   
+  getBaseTrackName(theme: Theme) : string {
+    return theme.id+':'
+  }
   addTheme(theme: Theme) {
     //console.log('add themes...')
     // theme -> track (more than one if concurrent files)
-    let themeTracks : TrackInfoMap = {}
     // give every track a placeholder track for level/section holding
+    let baseTrackName = this.getBaseTrackName(theme)
     let baseTrack: DaoTrack = {
-        name: theme.id+':',
+        name: baseTrackName,
         files: [],
         sections: [],
         title: 'Theme '+theme.id+' track 0',
         unitTime: 0,
-        maxDuration: 0
+        maxDuration: 0,
+        pauseIfSilent: true
     }
+    this.dp.tracks.push(baseTrack)
+    let baseTrackInfo = {
+      theme: theme,
+      baseTrack: true,
+      daotrack: baseTrack,
+      levelSections: {}
+    }
+    this.tracks[baseTrackName] = baseTrackInfo
     // level -> section
     let trackPos = 0
     let sections: DaoSection[] = baseTrack.sections
@@ -358,7 +440,7 @@ export class DaoplayerGenerator {
           continue
         }
         let trackName = theme.id+':'+track.id
-        let trackInfo : TrackInfo = themeTracks[trackName]
+        let trackInfo : TrackInfo = this.tracks[trackName]
         if (!trackInfo) {
           let daotrack : DaoTrack = {
               name: trackName,
@@ -366,13 +448,18 @@ export class DaoplayerGenerator {
               sections: [],
               title: 'Theme '+theme.id+' track '+track.id
           }
-          trackInfo = { 
-            track: daotrack
+          this.dp.tracks.push(daotrack)
+          trackInfo = {
+            theme: theme,
+            baseTrack: false,
+            daotrack: daotrack,
+            levelSections: {}
           }
-          themeTracks[trackName] = trackInfo
+          this.tracks[trackName] = trackInfo
         }
       }
       // track permutations
+      baseTrackInfo.levelSections[level.id] = []
       for (let pi=0; pi<permutations.length; pi++) {
         let permutation = permutations[pi]
         let section : DaoSection = {
@@ -383,13 +470,15 @@ export class DaoplayerGenerator {
             length: level.seconds
         }
         sections.push(section)
+        baseTrackInfo.levelSections[level.id].push(section)
+
         for (let track of level.tracks) {
           if (track.tracktype==TrackType.Oneshot) {
             continue
           }
           let fileTrackPos = trackPos
           let trackName = theme.id+':'+track.id
-          let trackInfo : TrackInfo = themeTracks[trackName]
+          let trackInfo : TrackInfo = this.tracks[trackName]
           for (let file of permutation[track.id]) {
             fileTrackPos += file.delayseconds
             if ( fileTrackPos>= trackPos+level.seconds+SMALL_TIME) {
@@ -408,7 +497,7 @@ export class DaoplayerGenerator {
                 length: length,
                 repeats: 1
             }
-            trackInfo.track.files.push(fileRef)
+            trackInfo.daotrack.files.push(fileRef)
             // TODO: volume1
             fileTrackPos += length
           } // file
@@ -418,16 +507,10 @@ export class DaoplayerGenerator {
       } // permutation
       // no gap?!
     }
-    //for (let i=1; i<tracks.length; i++) 
-    // no clone?!
-    //tracks[i].sections = tracks[0].sections
-    this.dp.tracks.push(baseTrack)
-    for (let ti in themeTracks) {
-      this.dp.tracks.push(themeTracks[ti].track)
-    }
   }
 
   addThemes(themes: Theme[]) {
+    this.themes = themes
     // each theme becomes a set of tracks...
     for (let theme of themes)
       this.addTheme(theme)
