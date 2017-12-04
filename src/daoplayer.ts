@@ -335,7 +335,8 @@ export class DaoplayerGenerator {
               let trackRef : DaoTrackRef = {
                 name: trackInfo.daotrack.name,
                 volume: 1, // TODO: volume from file(s)
-                pos: section.trackPos // TODO: next section
+                pos: section.trackPos, // TODO: next section
+                update: false
               }
               scene.tracks.push(trackRef)
             }
