@@ -106,6 +106,7 @@ interface LevelPermutation {
 }
 
 const debug = true
+const output_speak_scene = false
 
 const SECTION_GAP = 1
 
@@ -261,8 +262,9 @@ export class DaoplayerGenerator {
           onload: "",
           onupdate: ""
       }
-      if (debug)
+      if (output_speak_scene) {
         scene.onload = scene.onload+'daoplayer.speak('+JSON.stringify('region '+region.region)+', true); '
+      }
       // on load, enable/disable
       for (let rname of region.enable)
         scene.onload = scene.onload + VAR_ENABLED+'['+JSON.stringify(rname)+']=true; '
@@ -376,7 +378,7 @@ export class DaoplayerGenerator {
         let section : DaoSection = {
             name: level.id+':P'+pi,
             title: 'Theme '+theme.id+' level '+level.id+(permutations.length>1 ? ' permutation '+pi : ''),
-            description: level.description+(permutations.length>1 ? ' (permutation '+pi+')' : ''),
+            description: level.description,
             trackPos: trackPos,
             length: level.seconds
         }
