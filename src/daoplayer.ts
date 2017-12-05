@@ -120,6 +120,7 @@ const SECTION_GAP = 1
 
 const SAMPLE_RATE = 44100
 const SMALL_TIME = 0.5/SAMPLE_RATE
+const SHORT_FADE_TIME = 0.003
 
 function getRegion(regions: Region[], id: string): Region {
   for (let region of regions)
@@ -273,13 +274,19 @@ export class DaoplayerGenerator {
       // init enabled?
       initscene.onload = initscene.onload + VAR_ENABLED+'['+JSON.stringify(region.region)+']='+region.enabledatstart+';\n'
     }
-    // sections of themes - map theme -> map section -> array (permutations) of start times
+    // sections of themes - map theme -> map level -> array (permutations) of start times
     let sectionIndex = {}
+    // section end point index - map theme -> map section -> array of section time of end points
+    let endpointIndex = {}
+    // next level(s) - map theme -> map section (for level) -> array of level ids
+    let nextlevelIndex = {}
     for (let trackName in this.tracks) {
       let trackInfo = this.tracks[trackName]
       if (!trackInfo.baseTrack)
         continue
       sectionIndex[trackInfo.theme.id] = {}
+      endpointIndex[trackInfo.theme.id] = {}
+      nextlevelIndex[trackInfo.theme.id] = {}
       for (let levelId in trackInfo.levelSections) {
         let sections = trackInfo.levelSections[levelId]
         sectionIndex[trackInfo.theme.id][levelId] = []
@@ -287,11 +294,24 @@ export class DaoplayerGenerator {
           sectionIndex[trackInfo.theme.id][levelId].push(section.trackPos)
         }
       }
+      // for now all permutations of a section have the same endpoints and same next level(s)
+      for (let level of trackInfo.theme.levels) {
+        let endpoints = level.endbeats.map((b) => { return b*60/trackInfo.theme.tempo; })
+        endpoints.splice(0,0,0.0)
+        endpoints.push(level.seconds)
+        let nextlevels = level.nextlevel
+        for (let section of trackInfo.levelSections[level.id]) {
+          endpointIndex[trackInfo.theme.id][section.name] = endpoints
+          nextlevelIndex[trackInfo.theme.id][section.name] = nextlevels
+        }
+      }
     }
-    initscene.onload = initscene.onload + "window.sectionIndex=" + JSON.stringify(sectionIndex) + ";"
+    initscene.onload = initscene.onload + "window.sectionIndex=" + JSON.stringify(sectionIndex) + ";\n"
+    initscene.onload = initscene.onload + "window.dpEndpointIndex=" + JSON.stringify(endpointIndex) + ";\n"
+    initscene.onload = initscene.onload + "window.dpNextlevelIndex=" + JSON.stringify(nextlevelIndex) + ";\n"
     // theme(s)
     initscene.onload = initscene.onload + 'window.dpTh=null;window.dpNextTh=null;window.dpNextThT=0;window.dpNew=false;\n'+
-        "window.dpUpdateTheme=function(theme,level,ntps,load,tps,tvs,tss){"+
+        "window.dpUpdateTheme=function(theme,level,ntps,load,tps,tvs,tss,sceneTime,totalTime){"+
           "if(load){window.dpNew=true;}"+
           "if(window.dpNextThT<=totalTime){window.dpTh=window.dpNextTh;}\n"+
           "ntps[theme]=[];"+
@@ -300,14 +320,33 @@ export class DaoplayerGenerator {
             "daoplayer.log('switch to theme '+theme);window.dpNextTh=theme;window.dpNextThT=totalTime;"+
           "}else {"+
             // same theme - preserve 'current' section if any
-            // TODO short end?!
-            "if(tss[theme]){ntps[theme].push(tss[theme].startTime);ntps[theme].push(tss[theme].name);}"+
+            "if(tss[theme] && tvs[theme]>0 && tss[theme].startTime<sceneTime-"+SMALL_TIME+"){"+
+              // is it "our" scene playing?
+              "if(window.dpNew && tss[theme].name.substr(0,level.length+1)==level+':'){window.dpNew=false;}"+
+              "ntps[theme].push(tss[theme].startTime);"+
+              "ntps[theme].push(tss[theme].name);"+
+              "if(window.dpNew) {"+
+                // quick change => first suitable end?
+                "var eps=window.dpEndpointIndex[theme][tss[theme].name];var ep=null;"+
+                "for (var i=0;i<eps.length;i++) if(eps[i]>=sceneTime+"+SHORT_FADE_TIME+"-tss[theme].startTime){ep=eps[i];break;}"+
+                "ntps[theme].push(ep!==undefined ? tss[theme].startTime+ep : tss[theme].endTime);"+
+              "} else {ntps[theme].push(tss[theme].endTime);}"+
+            "}"+
+            //"daoplayer.log('ntps#1 '+JSON.stringify(ntps[theme]));"+
           "}"+
           // default start immediate
-          "if(ntps[theme].lengh==0){ntps[theme].push(sceneTime);}"+
+          "if(ntps[theme].length==0){ntps[theme].push(sceneTime);}"+
           // what section?
-          "var sections=window.sectionIndex[theme][level];"+
+          "var sections; if(window.dpNew || !tss[theme]) {"+
+            // change to "our" scene... (or if we've lost where we are)
+            "sections=window.sectionIndex[theme][level];"+
+          "} else {"+
+            // line up the next scene... (this will keep changing but that's OK - it should fix when it has changed)
+            "var nextlevels=window.dpNextlevelIndex[theme][tss[theme].name];"+
+            "sections=window.sectionIndex[theme][nextlevels[Math.floor(Math.random()*nextlevels.length)]];"+
+          "}"+
           "if(sections.length>0){ntps[theme].push(sections[Math.floor(Math.random()*sections.length)])}"+
+          //"daoplayer.log('ntps#2 '+JSON.stringify(ntps[theme]));"+
           // TODO
        "};"
     
@@ -385,8 +424,8 @@ export class DaoplayerGenerator {
         } // theme & level found
       } // theme & level set
       // ntps = new track positions
-      scene.onload = scene.onload + "var ntps={}; window.dpUpdateTheme('"+region.theme+"','"+region.level+"',ntps,true,tps,tvs,tss);"
-      scene.onupdate = scene.onupdate + "var ntps={}; window.dpUpdateTheme('"+region.theme+"','"+region.level+"',ntps,false,tps,tvs,tss);"
+      scene.onload = scene.onload + "var ntps={}; window.dpUpdateTheme('"+region.theme+"','"+region.level+"',ntps,true,tps,tvs,tss,sceneTime,totalTime);"
+      scene.onupdate = scene.onupdate + "var ntps={}; window.dpUpdateTheme('"+region.theme+"','"+region.level+"',ntps,false,tps,tvs,tss,sceneTime,totalTime);"
       
       // transition check
       scene.onupdate = scene.onupdate + transitionCheck(region, scene, regions)

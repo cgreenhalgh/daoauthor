@@ -267,6 +267,10 @@ export function readThemes(workbook:any) : Theme[] {
         endbeats: splitList(row['level_endbeats']).map((b) => Number(b)),
         tracks: []
       }
+      if (level.nextlevel.length==0) {
+        console.log(`Warning: theme ${theme.id} level ${row.level} has no next level (default to loop)`)
+        level.nextlevel.push(level.id)
+      }
       if (level.endeverybeats) {
         for (let i=1; i*level.endeverybeats*60/theme.tempo <=level.seconds + SMALL_TIME; i++) {
           let found = false
@@ -350,5 +354,15 @@ export function readThemes(workbook:any) : Theme[] {
       track.files.push(file)
     } // file
   } // row
+  // check nextlevels
+  for(let theme of themes) {
+    for (let level of theme.levels) {
+      for (let nextlevel of level.nextlevel) {
+        let l = theme.levels.find((l2) => {return l2.id==nextlevel;})
+        if (!l)
+          console.log(`Error: theme ${theme.id} level ${level.id} has unknown nextlevel ${nextlevel}`)
+      }
+    }
+  }
   return themes
 }
