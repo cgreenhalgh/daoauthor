@@ -56,3 +56,11 @@ Try one scene per level...
 - how does it do set scene from a track pos function? just call daoplayer.setScene?!
 
 For now a oneshot can be on a separate track and allowed to play out.
+
+### State
+
+Global state, on `window`:
+- `dpTh` = current theme id
+- `dpNextTh` = next theme id
+- `dpNextThT` = next theme global time
+

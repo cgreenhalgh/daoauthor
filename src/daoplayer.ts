@@ -257,7 +257,7 @@ export class DaoplayerGenerator {
     }
     return null
   }
-
+  
   addRegions(regions: Region[]) {
     // add init region
     let initscene:DaoScene = {
@@ -271,8 +271,46 @@ export class DaoplayerGenerator {
     initscene.onload = VAR_ENABLED+'={}; '
     for (let region of regions) {
       // init enabled?
-      initscene.onload = initscene.onload + VAR_ENABLED+'['+JSON.stringify(region.region)+']='+region.enabledatstart+'; '
+      initscene.onload = initscene.onload + VAR_ENABLED+'['+JSON.stringify(region.region)+']='+region.enabledatstart+';\n'
     }
+    // sections of themes - map theme -> map section -> array (permutations) of start times
+    let sectionIndex = {}
+    for (let trackName in this.tracks) {
+      let trackInfo = this.tracks[trackName]
+      if (!trackInfo.baseTrack)
+        continue
+      sectionIndex[trackInfo.theme.id] = {}
+      for (let levelId in trackInfo.levelSections) {
+        let sections = trackInfo.levelSections[levelId]
+        sectionIndex[trackInfo.theme.id][levelId] = []
+        for (let section of sections) {
+          sectionIndex[trackInfo.theme.id][levelId].push(section.trackPos)
+        }
+      }
+    }
+    initscene.onload = initscene.onload + "window.sectionIndex=" + JSON.stringify(sectionIndex) + ";"
+    // theme(s)
+    initscene.onload = initscene.onload + 'window.dpTh=null;window.dpNextTh=null;window.dpNextThT=0;window.dpNew=false;\n'+
+        "window.dpUpdateTheme=function(theme,level,ntps,load,tps,tvs,tss){"+
+          "if(load){window.dpNew=true;}"+
+          "if(window.dpNextThT<=totalTime){window.dpTh=window.dpNextTh;}\n"+
+          "ntps[theme]=[];"+
+          "if(theme!=window.dpTh){"+
+            // change theme
+            "daoplayer.log('switch to theme '+theme);window.dpNextTh=theme;window.dpNextThT=totalTime;"+
+          "}else {"+
+            // same theme - preserve 'current' section if any
+            // TODO short end?!
+            "if(tss[theme]){ntps[theme].push(tss[theme].startTime);ntps[theme].push(tss[theme].name);}"+
+          "}"+
+          // default start immediate
+          "if(ntps[theme].lengh==0){ntps[theme].push(sceneTime);}"+
+          // what section?
+          "var sections=window.sectionIndex[theme][level];"+
+          "if(sections.length>0){ntps[theme].push(sections[Math.floor(Math.random()*sections.length)])}"+
+          // TODO
+       "};"
+    
     initscene.onload = initscene.onload + transitionCheck(null, initscene, regions)
     initscene.onupdate = transitionCheck(null, initscene, regions)
     // scenes enabled?
@@ -289,6 +327,7 @@ export class DaoplayerGenerator {
           onload: "",
           onupdate: ""
       }
+      this.dp.scenes.push(scene)
       if (output_speak_scene) {
         scene.onload = scene.onload+'daoplayer.speak('+JSON.stringify('region '+region.region)+', true); '
       }
@@ -297,11 +336,14 @@ export class DaoplayerGenerator {
         scene.onload = scene.onload + VAR_ENABLED+'['+JSON.stringify(rname)+']=true; '
       for (let rname of region.disable)
         scene.onload = scene.onload + VAR_ENABLED+'['+JSON.stringify(rname)+']=false; '
-      // transition check
-      scene.onupdate = scene.onupdate + transitionCheck(region, scene, regions)
+      
+      if (!region.theme || !region.level) {
+        // give up!
+        continue
+      }
         
-      // jump to theme/level
-      // TODO transition
+      // transition to theme/level
+      // TODO oneshots
       if (region.theme && region.level) {
         let theme = this.getTheme(region.theme)
         let level = this.getLevel(theme, region.level)
@@ -324,27 +366,30 @@ export class DaoplayerGenerator {
             console.log(`Internal error: no section(s) found for level ${level.id} in base track for theme ${theme.id}`)
             process.exit(-1)
           }
-          // TODO random
-          let section = sections[0]
-          // level -> section
           for (let trackName in this.tracks) {
             let trackInfo = this.tracks[trackName]
             if (trackInfo.theme!==theme) {
               // diff theme - default to off/stop
+              // TODO other theme end
             } else {
               // same theme
               let trackRef : DaoTrackRef = {
                 name: trackInfo.daotrack.name,
                 volume: 1, // TODO: volume from file(s)
-                pos: section.trackPos, // TODO: next section
-                update: false
+                pos: "ntps['"+region.theme+"']", 
+                update: true
               }
               scene.tracks.push(trackRef)
             }
           }
         } // theme & level found
       } // theme & level set
-      this.dp.scenes.push(scene)
+      // ntps = new track positions
+      scene.onload = scene.onload + "var ntps={}; window.dpUpdateTheme('"+region.theme+"','"+region.level+"',ntps,true,tps,tvs,tss);"
+      scene.onupdate = scene.onupdate + "var ntps={}; window.dpUpdateTheme('"+region.theme+"','"+region.level+"',ntps,false,tps,tvs,tss);"
+      
+      // transition check
+      scene.onupdate = scene.onupdate + transitionCheck(region, scene, regions)
     }
   }
 
@@ -372,7 +417,7 @@ export class DaoplayerGenerator {
   }
   
   getBaseTrackName(theme: Theme) : string {
-    return theme.id+':'
+    return theme.id
   }
   addTheme(theme: Theme) {
     //console.log('add themes...')
@@ -447,8 +492,11 @@ export class DaoplayerGenerator {
           let daotrack : DaoTrack = {
               name: trackName,
               files: [],
-              sections: [],
-              title: 'Theme '+theme.id+' track '+track.id
+              sections: baseTrack.sections,
+              title: 'Theme '+theme.id+' track '+track.id,
+              unitTime: 0,
+              maxDuration: 0,
+              pauseIfSilent: true
           }
           this.dp.tracks.push(daotrack)
           trackInfo = {

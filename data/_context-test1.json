@@ -1,0 +1,90 @@
+{
+  "meta": {
+    "mimetype": "application/x-daoplayer-composition",
+    "version": 1,
+    "title":  "JubileeCampusContext",
+    "description":  "JCTest1 context file"
+  },
+  
+  "context": {
+    "title":  "Walk around Lake",
+    
+    
+    "waypoints": [
+      {
+        "name": "W1",
+        "lat": 52.952108, 
+        "lng": -1.186998 ,
+        
+        "title":  "Start",
+        "description":  "corner of the Atrium / path / trail by lake"
+      },
+      {
+        "name": "W2",
+        "lat": 52.951942, 
+        "lng": -1.188325  ,
+        
+        "description":  "left hand turn on trail around lake"
+      },
+      {
+        "name": "W3",
+        "lat": 52.949983, 
+        "lng": -1.187581 ,
+        
+        "description":  "junction on trial by NCL"
+      },
+      {
+        "name": "W4",
+        "lat": 52.949338, 
+        "lng": -1.187413,
+        
+        "description":  "entering sports field"
+      },
+      {
+        "name": "5",
+        "lat": 52.949294, 
+        "lng": -1.186221 ,
+        
+        "description":  "middle / bottom (car park side) of sports field"
+      },
+      {
+        "name": "6",
+        "lat": 52.949482, 
+        "lng": -1.185305 ,
+        
+        "description":  "edge of sports field / road /car park"
+      },
+      {
+        "name": "7",
+        "lat": 52.950374, 
+        "lng": -1.185560 ,
+        
+        "description":  "Left-hand turn: junction of road and path that leads to the right-hand side of the NCL"
+      },
+      {
+        "name": "8",
+        "lat": 52.950274, 
+        "lng": -1.185841 ,
+        "origin": true,
+        "description":  "Right-hand turn: junction of path and lake path"
+      },
+      {
+        "name": "9",
+        "lat": 52.951210, 
+        "lng": -1.186528  ,
+        
+        "description":  "junction on path with water feature"
+      },
+      {
+        "name": "10",
+        "lat": 52.952110, 
+        "lng": -1.186999  ,
+        
+        "title":  "end",
+        "description":  "return to start (end)"
+      }
+    ],
+    "routes": [
+    ]
+  }
+}
