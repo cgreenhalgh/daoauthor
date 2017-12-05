@@ -77,7 +77,8 @@ The columns in this sheet specifically for a `level` are:
 - `nextlevel` - comma-separated list of names/IDs of level(s) to transition to when this level has completed. To loop a level put its ID here. 
 - `beats` - length of level in beats (required unless `seconds` is specified).
 - `seconds` - length of level in seconds (optional, overrides `beats` if specified)
-- `endbeats` - comma-separated list of beat numbers after which a transition to another level can take place
+- `endeverybeats` - beat multiple after which a transition to another level can take place (optional)
+- `endbeats` - comma-separated list of beat numbers after which a transition to another level can take place (optional, additional to endeverybeats)
 
 The columns in this sheet specifically for a `track` (a single looped cell within a level) are:
 - `track:` - track name/ID, required for oneshot tracks, optional otherwise

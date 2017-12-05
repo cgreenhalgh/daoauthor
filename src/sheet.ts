@@ -186,6 +186,7 @@ export interface Level {
   nextlevel: string[]
   beats?: number
   seconds: number
+  endeverybeats?: number
   endbeats: number[]
   tracks: Track[]
 }
@@ -214,6 +215,8 @@ export interface TrackFile {
   fadeseconds?: number
   volume2?: number
 }
+const SAMPLE_RATE = 44100
+const SMALL_TIME = 0.5/SAMPLE_RATE
 
 export function readThemes(workbook:any) : Theme[] {
   let s = workbook.Sheets['themes']
@@ -260,9 +263,27 @@ export function readThemes(workbook:any) : Theme[] {
         nextlevel: splitList(row['level_nextlevel']),
         beats: row['level_beats'] ? Number(row['level_beats']) : null,
         seconds: row['level_seconds'] ? Number(row['level_seconds']) : Number(row['level_beats'])*60/theme.tempo,
+        endeverybeats: row['level_endeverybeats'] ? Number(row['level_endeverybeats']) : null,
         endbeats: splitList(row['level_endbeats']).map((b) => Number(b)),
         tracks: []
       }
+      if (level.endeverybeats) {
+        for (let i=1; i*level.endeverybeats*60/theme.tempo <=level.seconds + SMALL_TIME; i++) {
+          let found = false
+          let beat = i*level.endeverybeats
+          for (let b of level.endbeats) {
+            if (Math.abs(b-beat)<SMALL_TIME) {
+              found = true
+              break
+            }
+          }
+          if (!found) {
+            level.endbeats.push(beat)
+          }
+        }
+      } 
+      level.endbeats.sort((a,b) => { return a-b; })
+      //console.log(`${theme.id} ${level.id} endeverybeats ${level.endeverybeats} -> endbeats`, level.endbeats)
       for (let l of theme.levels) {
         if (l.id == level.id) {
           console.log(`Error: duplicate level "${level.id}" in theme ${theme.id}`)

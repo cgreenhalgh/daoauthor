@@ -185,6 +185,7 @@ function transitionCheck(region: Region, scene: DaoScene, regions: Region[]): st
     if (a.priority!=b.priority) return a.priority>b.priority ? -1 : 1
     if (a.waypoint && !b.waypoint) return -1
     if (b.waypoint && !a.waypoint) return 1
+    if (a.self!=b.self) return a.self ? -1 : 1
     return a.toRegion.localeCompare(b.toRegion)
   })
   let code = ''
