@@ -29,3 +29,17 @@ npm install
 npm run-script build
 node dist/index.js data/mobile\ music\ ex1.1.xlsx
 ```
+
+## TODO
+
+At least some of the outstanding items:
+
+- check if new app is working with GPS (script timeouts?!)
+- theme transitions
+- `minbeats`/`minseconds` in level
+- `oneshot` tracks
+- track/file volumes
+- track/file volume fades
+- level transition short fades
+- `globalvolume` ??
+- region time limits (e.g. `disableafter`?)
