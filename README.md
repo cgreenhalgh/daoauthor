@@ -34,7 +34,6 @@ node dist/index.js data/mobile\ music\ ex1.1.xlsx
 
 At least some of the outstanding items:
 
-- `oneshot` tracks
 - track/file volumes
 - theme transitions
 - track/file volume fades

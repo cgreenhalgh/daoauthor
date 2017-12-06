@@ -104,8 +104,25 @@ interface TrackInfo {
 }
 
 interface TrackInfoMap {
+  // key is trackname, i.e. level:permutation
   [propName:string]: TrackInfo
 }
+
+interface OneshotTrackInfo {
+  name: string
+  daotrack: DaoTrack
+  nextTrackPos: number
+  oneshotSections: OneshotSectionMap
+}
+interface OneshotSectionMap {
+  // key is theme:level
+  [propName:string]: DaoSection
+}
+interface OneshotTrackInfoMap {
+  // key is trackname, i.e. track name
+  [propName:string]: OneshotTrackInfo
+}
+
 
 // info about a level permutation
 interface LevelPermutation {
@@ -121,6 +138,7 @@ const SECTION_GAP = 1
 const SAMPLE_RATE = 44100
 const SMALL_TIME = 0.5/SAMPLE_RATE
 const SHORT_FADE_TIME = 0.003
+const END_SECTION = "_END"
 
 function getRegion(regions: Region[], id: string): Region {
   for (let region of regions)
@@ -219,6 +237,7 @@ export class DaoplayerGenerator {
 
   dp: Daoplayer
   tracks: TrackInfoMap = {}
+  oneshotTracks: OneshotTrackInfoMap = {}
   themes: Theme[]
   
   init(settings:Settings) {
@@ -267,9 +286,21 @@ export class DaoplayerGenerator {
         title: 'Initialisation scene',
         waypoints: {},
         routes: {},
+        tracks: [],
         updatePeriod: 1.0
     }
     initscene.onload = VAR_ENABLED+'={}; '
+    // init scene oneshot tracks are at _END
+    for (let trackName in this.oneshotTracks) {
+      let trackInfo = this.oneshotTracks[trackName]
+      let trackRef : DaoTrackRef = {
+          name: trackInfo.daotrack.name,
+          volume: 0, 
+          pos: "["+JSON.stringify(END_SECTION)+"]",
+          update: false
+      }
+      initscene.tracks.push(trackRef)
+    }
     for (let region of regions) {
       // init enabled?
       initscene.onload = initscene.onload + VAR_ENABLED+'['+JSON.stringify(region.region)+']='+region.enabledatstart+';\n'
@@ -315,12 +346,33 @@ export class DaoplayerGenerator {
     initscene.onload = initscene.onload + "window.dpEndpointIndex=" + JSON.stringify(endpointIndex) + ";\n"
     initscene.onload = initscene.onload + "window.dpMinendIndex=" + JSON.stringify(minendIndex) + ";\n"
     initscene.onload = initscene.onload + "window.dpNextlevelIndex=" + JSON.stringify(nextlevelIndex) + ";\n"
+    // oneshot track names
+    let oneshotTrackNames = []
+    for (let trackName in this.oneshotTracks) {
+      oneshotTrackNames.push(trackName)
+    }
+    initscene.onload = initscene.onload + "window.dpOneshotTNames=" + JSON.stringify(oneshotTrackNames) + ";\n"
+    // oneshot index - map theme -> map level -> map track -> section name
+    let oneshotIndex = {}
+    for (let theme of this.themes) {
+      oneshotIndex[theme.id] = {}
+      for (let level of theme.levels) {
+        oneshotIndex[theme.id][level.id] = {}
+        for (let track of level.tracks) {
+          if (track.tracktype!=TrackType.Oneshot)
+            continue
+          oneshotIndex[theme.id][level.id][track.id] = theme.id+':'+level.id
+        }
+      }
+    }
+    initscene.onload = initscene.onload + "window.dpOneshotIndex=" + JSON.stringify(oneshotIndex) + ";\n"
     // theme(s)
     initscene.onload = initscene.onload + 'window.dpTh=null;window.dpNextTh=null;window.dpNextThT=0;window.dpNew=false;\n'+
         "window.dpUpdateTheme=function(theme,level,ntps,load,tps,tvs,tss,sceneTime,totalTime){"+
           "if(load){window.dpNew=true;}"+
           "if(window.dpNextThT<=totalTime){window.dpTh=window.dpNextTh;}\n"+
           "ntps[theme]=[];"+
+          "var ntime=sceneTime;"+
           "if(theme!=window.dpTh){"+
             // change theme
             "daoplayer.log('switch to theme '+theme);window.dpNextTh=theme;window.dpNextThT=totalTime;"+
@@ -328,7 +380,7 @@ export class DaoplayerGenerator {
             // same theme - preserve 'current' section if any
             "if(tss[theme] && tvs[theme]>0 && tss[theme].startTime<sceneTime-"+SMALL_TIME+"){"+
               // is it "our" scene playing?
-              "if(window.dpNew && tss[theme].name.substr(0,level.length+1)==level+':'){window.dpNew=false;}"+
+              "if(window.dpNew && tss[theme].name!="+JSON.stringify(END_SECTION)+" && tss[theme].name.substr(0,level.length+1)==level+':'){window.dpNew=false;}"+
               "ntps[theme].push(tss[theme].startTime);"+
               "ntps[theme].push(tss[theme].name);"+
               "if(window.dpNew) {"+
@@ -338,25 +390,50 @@ export class DaoplayerGenerator {
                 "var mine=window.dpMinendIndex[theme][tss[theme].name]; if (mine!==undefined){"+
                   "if(tss[theme].startTime+mine<sceneTime){ep=sceneTime-tss[theme].startTime;}else{ep=mine;}"+
                 "}"+
-                "ntps[theme].push(ep!==undefined ? tss[theme].startTime+ep : tss[theme].endTime);"+
-              "} else {ntps[theme].push(tss[theme].endTime);}"+
+                "ntime=(ep!==undefined) ? tss[theme].startTime+ep : tss[theme].endTime;"+
+                "ntps[theme].push(ntime);"+
+              "} else {"+
+                "ntime=tss[theme].endTime; ntps[theme].push(ntime);"+
+              "}"+
             "}"+
             //"daoplayer.log('ntps#1 '+JSON.stringify(ntps[theme]));"+
           "}"+
           // default start immediate
-          "if(ntps[theme].length==0){ntps[theme].push(sceneTime);}"+
+          "if(ntps[theme].length==0){ntime=sceneTime;ntps[theme].push(sceneTime);}"+
           // what section?
-          "var sections; if(window.dpNew || !tss[theme]) {"+
+          "var sections; var nlevel; if(window.dpNew || !tss[theme]) {"+
             // change to "our" scene... (or if we've lost where we are)
-            "sections=window.sectionIndex[theme][level];"+
+            "nlevel=level; sections=window.sectionIndex[theme][level];"+
           "} else {"+
             // line up the next scene... (this will keep changing but that's OK - it should fix when it has changed)
             "var nextlevels=window.dpNextlevelIndex[theme][tss[theme].name];"+
-            "sections=window.sectionIndex[theme][nextlevels[Math.floor(Math.random()*nextlevels.length)]];"+
+            "nlevel=nextlevels[Math.floor(Math.random()*nextlevels.length)];"+
+            "sections=window.sectionIndex[theme][nlevel];"+
           "}"+
           "if(sections.length>0){ntps[theme].push(sections[Math.floor(Math.random()*sections.length)])}"+
+          "else{ntps[theme].push("+JSON.stringify(END_SECTION)+");}"+
           //"daoplayer.log('ntps#2 '+JSON.stringify(ntps[theme]));"+
-          // TODO
+          // each oneshot track
+          "for(var ti=0;ti<window.dpOneshotTNames.length;ti++){"+
+            "var tname=window.dpOneshotTNames[ti];"+
+            "ntps[tname]=[];"+
+            "var endTime=sceneTime;"+
+            // get 'current' section if any
+            "if(tss[tname] && tss[tname].name!="+JSON.stringify(END_SECTION)+" && tvs[tname]>0 && tss[tname].startTime<sceneTime-"+SMALL_TIME+"){"+
+              "ntps[tname].push(tss[tname].startTime);"+
+              "ntps[tname].push(tss[tname].name);"+
+              "endTime=tss[tname].endTime;"+
+            "}"+
+            // oneshot in next level?
+            "if(window.dpOneshotIndex[theme][nlevel][tname]){"+
+              // match time to theme/level - gap first?
+              "if(endTime<ntime){ntps[tname].push(endTime);ntps[tname].push("+JSON.stringify(END_SECTION)+");}"+
+              "ntps[tname].push(ntime);"+
+              "ntps[tname].push(theme+':'+nlevel);"+
+            "} else {ntps[tname].push(endTime);}"+
+            // then silence
+            "ntps[tname].push("+JSON.stringify(END_SECTION)+");"+
+          "}"+
        "};"
     
     initscene.onload = initscene.onload + transitionCheck(null, initscene, regions)
@@ -430,6 +507,17 @@ export class DaoplayerGenerator {
               scene.tracks.push(trackRef)
             }
           }
+          // oneshot tracks - all handled in every scene
+          for (let trackName in this.oneshotTracks) {
+            let trackInfo = this.oneshotTracks[trackName]
+            let trackRef : DaoTrackRef = {
+                name: trackInfo.daotrack.name,
+                volume: 1, // TODO: volume from file(s)
+                pos: "ntps['"+trackName+"']", 
+                update: true
+            }
+            scene.tracks.push(trackRef)
+          }
         } // theme & level found
       } // theme & level set
       // ntps = new track positions
@@ -502,8 +590,7 @@ export class DaoplayerGenerator {
         let options: TrackFile[][] = []
         switch (track.tracktype) {
           case TrackType.Oneshot:
-            // TODO
-            console.log(`Warning: ignored oneshot track "${track.id}" in theme ${theme.id} level ${level.id} - not yet supported`)
+            // later...
             continue nexttrack
           case TrackType.Sequence:
             // all in order
@@ -604,7 +691,73 @@ export class DaoplayerGenerator {
         trackPos += level.seconds+SECTION_GAP
       } // permutation
       // no gap?!
+
+      // one shot tracks
+      for (let track of level.tracks) {
+        if (track.tracktype!=TrackType.Oneshot) {
+          continue
+        }
+        // make tracks
+        let trackName = track.id
+        let trackInfo : OneshotTrackInfo = this.oneshotTracks[trackName]
+        if (!trackInfo) {
+          let daotrack : DaoTrack = {
+              name: trackName,
+              files: [],
+              sections: [],
+              title: 'Oneshot track '+track.id,
+              unitTime: 0,
+              maxDuration: 0,
+              pauseIfSilent: true
+          }
+          this.dp.tracks.push(daotrack)
+          trackInfo = {
+            name: trackName,
+            daotrack: daotrack,
+            nextTrackPos: 0,
+            oneshotSections: {}
+          }
+          this.oneshotTracks[trackName] = trackInfo
+        }
+        // no permutations (now, anyway)
+        if (track.files.length==0) {
+          console.log(`Warning: theme ${theme.id} level ${level.id} oneshot track ${track.id} has no file`)
+          continue;
+        }
+        if (track.files.length>1) {
+          console.log(`Warning: theme ${theme.id} level ${level.id} oneshot track ${track.id} has ${track.files.length} files; only first will play`)
+        }
+        let file = track.files[0]
+        let sectionName = theme.id+':'+level.id
+        let section : DaoSection = {
+            name: sectionName,
+            title: 'Theme '+theme.id+' level '+level.id+' oneshot on track '+track.id,
+            description: level.description,
+            trackPos: trackInfo.nextTrackPos,
+            length: file.delayseconds+file.seconds
+        }
+        trackInfo.daotrack.sections.push(section)
+        trackInfo.oneshotSections[sectionName] = section
+        let fileRef:DaoFileRef = {
+            path: file.file,
+            trackPos: trackInfo.nextTrackPos+file.delayseconds,
+            filePos: 0,
+            length: file.seconds,
+            repeats: 1
+        }
+        trackInfo.daotrack.files.push(fileRef)
+        // TODO: volume1
+        trackInfo.nextTrackPos = trackInfo.nextTrackPos + section.length + SECTION_GAP
+      } // track (oneshot)
+    } // level
+    // add _END section (for silence)
+    let section : DaoSection = {
+        name: END_SECTION,
+        title: `End (silence)`,
+        trackPos: trackPos
+        // default length is all (-1)
     }
+    sections.push(section)
   }
 
   addThemes(themes: Theme[]) {
@@ -612,6 +765,17 @@ export class DaoplayerGenerator {
     // each theme becomes a set of tracks...
     for (let theme of themes)
       this.addTheme(theme)
+    // add _END section to oneshot tracks (for silence)
+    for (let trackName in this.oneshotTracks) {
+      let trackInfo = this.oneshotTracks[trackName]
+      let section : DaoSection = {
+          name: END_SECTION,
+          title: `End (silence)`,
+          trackPos: trackInfo.nextTrackPos
+          // default length is all (-1)
+        }
+      trackInfo.daotrack.sections.push(section)
+    }
   }
   
   getData(): Daoplayer {
