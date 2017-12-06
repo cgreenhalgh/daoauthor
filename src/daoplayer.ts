@@ -278,6 +278,8 @@ export class DaoplayerGenerator {
     let sectionIndex = {}
     // section end point index - map theme -> map section -> array of section time of end points
     let endpointIndex = {}
+    // section min end index, only when endpoint not applicable - map theme -> map section -> min time seconds (or undefined)
+    let minendIndex = {}
     // next level(s) - map theme -> map section (for level) -> array of level ids
     let nextlevelIndex = {}
     for (let trackName in this.tracks) {
@@ -286,6 +288,7 @@ export class DaoplayerGenerator {
         continue
       sectionIndex[trackInfo.theme.id] = {}
       endpointIndex[trackInfo.theme.id] = {}
+      minendIndex[trackInfo.theme.id] = {}
       nextlevelIndex[trackInfo.theme.id] = {}
       for (let levelId in trackInfo.levelSections) {
         let sections = trackInfo.levelSections[levelId]
@@ -297,17 +300,20 @@ export class DaoplayerGenerator {
       // for now all permutations of a section have the same endpoints and same next level(s)
       for (let level of trackInfo.theme.levels) {
         let endpoints = level.endbeats.map((b) => { return b*60/trackInfo.theme.tempo; })
+        // always start
         endpoints.splice(0,0,0.0)
-        endpoints.push(level.seconds)
         let nextlevels = level.nextlevel
         for (let section of trackInfo.levelSections[level.id]) {
           endpointIndex[trackInfo.theme.id][section.name] = endpoints
+          if (level.minseconds!==null && level.minseconds!==undefined)
+            minendIndex[trackInfo.theme.id][section.name] = level.minseconds
           nextlevelIndex[trackInfo.theme.id][section.name] = nextlevels
         }
       }
     }
     initscene.onload = initscene.onload + "window.sectionIndex=" + JSON.stringify(sectionIndex) + ";\n"
     initscene.onload = initscene.onload + "window.dpEndpointIndex=" + JSON.stringify(endpointIndex) + ";\n"
+    initscene.onload = initscene.onload + "window.dpMinendIndex=" + JSON.stringify(minendIndex) + ";\n"
     initscene.onload = initscene.onload + "window.dpNextlevelIndex=" + JSON.stringify(nextlevelIndex) + ";\n"
     // theme(s)
     initscene.onload = initscene.onload + 'window.dpTh=null;window.dpNextTh=null;window.dpNextThT=0;window.dpNew=false;\n'+
@@ -329,6 +335,9 @@ export class DaoplayerGenerator {
                 // quick change => first suitable end?
                 "var eps=window.dpEndpointIndex[theme][tss[theme].name];var ep=null;"+
                 "for (var i=0;i<eps.length;i++) if(eps[i]>=sceneTime+"+SHORT_FADE_TIME+"-tss[theme].startTime){ep=eps[i];break;}"+
+                "var mine=window.dpMinendIndex[theme][tss[theme].name]; if (mine!==undefined){"+
+                  "if(tss[theme].startTime+mine<sceneTime){ep=sceneTime-tss[theme].startTime;}else{ep=mine;}"+
+                "}"+
                 "ntps[theme].push(ep!==undefined ? tss[theme].startTime+ep : tss[theme].endTime);"+
               "} else {ntps[theme].push(tss[theme].endTime);}"+
             "}"+

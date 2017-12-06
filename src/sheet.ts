@@ -186,6 +186,8 @@ export interface Level {
   nextlevel: string[]
   beats?: number
   seconds: number
+  minbeats?: number
+  minseconds?: number
   endeverybeats?: number
   endbeats: number[]
   tracks: Track[]
@@ -256,6 +258,7 @@ export function readThemes(workbook:any) : Theme[] {
       if (!row['level_beats'] && !row['level_seconds']) {
         console.log(`Error: theme "${theme.id}" level "${row.level}" has no length "beats" or "seconds" specified`)
       }
+      let minbeats = row['level_minbeats'] ? Number(row['level_minbeats']) : null
       level = {
         theme: theme,
         id: row['level'].toLowerCase(),
@@ -263,14 +266,18 @@ export function readThemes(workbook:any) : Theme[] {
         nextlevel: splitList(row['level_nextlevel']),
         beats: row['level_beats'] ? Number(row['level_beats']) : null,
         seconds: row['level_seconds'] ? Number(row['level_seconds']) : Number(row['level_beats'])*60/theme.tempo,
+        minbeats: minbeats,
+        minseconds: row['level_minseconds'] ? Number(row['level_minseconds']) : (minbeats ? minbeats*60/theme.tempo : null),
         endeverybeats: row['level_endeverybeats'] ? Number(row['level_endeverybeats']) : null,
-        endbeats: splitList(row['level_endbeats']).map((b) => Number(b)),
+        endbeats: splitList(row['level_endeverybeats']).map((b) => Number(b)),
         tracks: []
       }
       if (level.nextlevel.length==0) {
         console.log(`Warning: theme ${theme.id} level ${row.level} has no next level (default to loop)`)
         level.nextlevel.push(level.id)
       }
+      // always end
+      level.endbeats.push(level.seconds)
       if (level.endeverybeats) {
         for (let i=1; i*level.endeverybeats*60/theme.tempo <=level.seconds + SMALL_TIME; i++) {
           let found = false
@@ -286,6 +293,18 @@ export function readThemes(workbook:any) : Theme[] {
           }
         }
       } 
+      if (level.minseconds!==null) {
+        if (row['level_endeverybeats'] || row['level_endeverybeats']) {
+          // filter
+          level.endbeats = level.endbeats.filter((t) => { return t>=level.minseconds-SMALL_TIME; })
+          level.minseconds = null
+        } else {
+          if (level.seconds < level.minseconds) {
+            console.log(`Warning: theme ${theme.id} level ${level.id} min time was greater than duration (${level.minseconds} vs ${level.seconds})`)
+            level.minseconds = level.seconds
+          }
+        }
+      }
       level.endbeats.sort((a,b) => { return a-b; })
       //console.log(`${theme.id} ${level.id} endeverybeats ${level.endeverybeats} -> endbeats`, level.endbeats)
       for (let l of theme.levels) {

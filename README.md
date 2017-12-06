@@ -34,12 +34,11 @@ node dist/index.js data/mobile\ music\ ex1.1.xlsx
 
 At least some of the outstanding items:
 
-- check if new app is working with GPS (script timeouts?!)
-- theme transitions
-- `minbeats`/`minseconds` in level
 - `oneshot` tracks
 - track/file volumes
+- theme transitions
 - track/file volume fades
-- level transition short fades
-- `globalvolume` ??
 - region time limits (e.g. `disableafter`?)
+- level transition short fades
+- debug script timeouts
+- `globalvolume` ??
