@@ -365,10 +365,13 @@ export function readThemes(workbook:any) : Theme[] {
         seconds: row[prefix+'_seconds'] ? Number(row[prefix+'_seconds']) : (beats ? beats*60/theme.tempo : level.seconds),
         delaybeats: delaybeats,
         delayseconds: row[prefix+'_delayseconds'] ? Number(row[prefix+'_delayseconds']) : delaybeats*60/theme.tempo,
-        volume1: row[prefix+'_volume1'] ? Number(row[prefix+'_volume1']) : 1,
+        // could be 0!
+        volume1: row[prefix+'_volume1']!==null && row[prefix+'_volume1']!==undefined && row[prefix+'_volume1']!='' ? Number(row[prefix+'_volume1']) : 1,
         fadebeats: fadebeats,
-        fadeseconds: row[prefix+'_fadeseconds'] ? Number(row[prefix+'_fadeseconds']) : (fadebeats ? fadebeats*60/theme.tempo : null),
-        volume2: row[prefix+'_volume2'] ? Number(row[prefix+'_volume2']) : null
+        // could be 0!
+        fadeseconds: row[prefix+'_fadeseconds']!==null && row[prefix+'_fadeseconds']!==undefined && row[prefix+'_fadeseconds']!='' ? Number(row[prefix+'_fadeseconds']) : (fadebeats ? fadebeats*60/theme.tempo : null),
+        // could be 0!
+        volume2: row[prefix+'_volume2']!==null &&  row[prefix+'_volume2']!==undefined && row[prefix+'_volume2']!='' ? Number(row[prefix+'_volume2']) : null
       }
       track.files.push(file)
     } // file

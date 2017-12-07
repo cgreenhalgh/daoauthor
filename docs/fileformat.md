@@ -99,7 +99,7 @@ The columns in this sheet specifically for a `fileN:` (a single file within a tr
 - `seconds` - length of file in seconds (optional, overrides `beats` if specified)
 - `delaybeats` - delay before start of file, beats (default 0); in a sequence this is relative to the end of the previous file, otherwise to the start of the level.
 - `delayseconds` - delay before start of file, seconds (overriders delaybeats if specified)
-- `volume1` - initial volume of file
+- `volume1` - initial volume of file (default 1)
 
 Not yet supported:
 - `fadebeats` - optional time (beats) over which to fade to `volume2`; if fadebeats and fadeseconds omitted volume remains at `volume1`

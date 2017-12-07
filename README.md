@@ -34,9 +34,7 @@ node dist/index.js data/mobile\ music\ ex1.1.xlsx
 
 At least some of the outstanding items:
 
-- track/file volumes
 - theme transitions
-- track/file volume fades
 - region time limits (e.g. `disableafter`?)
 - level transition short fades
 - debug script timeouts
