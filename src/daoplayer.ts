@@ -1,5 +1,5 @@
 // daoplayer-specific stuff
-import { Settings, Region, Theme, Level, Track, TrackType, TrackFile } from './sheet'
+import { Settings, Region, Theme, Level, Track, TrackType, TrackFile, Transition } from './sheet'
 
 // daoplayer JSON file format
 export interface DaoMeta {
@@ -234,12 +234,23 @@ function transitionCheck(region: Region, scene: DaoScene, regions: Region[]): st
   return code
 }
 
+interface DpTransition {
+  fade: number
+}
+interface TransitionMap {
+  [propName:string]:DpTransition
+}
+
 export class DaoplayerGenerator {
 
   dp: Daoplayer
   tracks: TrackInfoMap = {}
   oneshotTracks: OneshotTrackInfoMap = {}
   themes: Theme[]
+  themeTransitions: TransitionMap
+  defaultTransition: DpTransition = {
+    fade: SHORT_FADE_TIME
+  }
   
   init(settings:Settings) {
     this.dp = {
@@ -279,6 +290,27 @@ export class DaoplayerGenerator {
     return null
   }
   
+  addTransitions(transitions: Transition[]) {
+    this.themeTransitions = {}
+    for (let t of transitions) {
+      let transition:DpTransition = {
+        fade: t.fadeoutseconds
+      }
+      if (!t.fromtheme)
+        this.defaultTransition = transition
+      else {
+        this.themeTransitions[t.fromtheme] = transition
+      }
+    }
+  }
+
+  getTransition(fromtheme: string) : DpTransition {
+    let transition = this.themeTransitions[fromtheme]
+    if (transition===undefined)
+      return this.defaultTransition
+    return transition
+  }
+      
   addRegions(regions: Region[]) {
     // add init region
     let initscene:DaoScene = {
@@ -441,6 +473,13 @@ export class DaoplayerGenerator {
       }
     }
     initscene.onload = initscene.onload + "window.dpOneshotIndex=" + JSON.stringify(oneshotIndex) + ";\n"
+    // transitions - map theme -> { fade: s }
+    let transitions = {}
+    for (let theme of this.themes) {
+      let transition = this.getTransition(theme.id)
+      transitions[theme.id] = transition
+    }
+    initscene.onload = initscene.onload + "window.dpTransitions=" + JSON.stringify(transitions) + ";\n"
     // theme(s)
     initscene.onload = initscene.onload + 'window.dpTh=null;window.dpNextTh=null;window.dpNextThT=0;window.dpNew=false;\n'+
         "window.dpUpdateTheme=function(theme,level,ntps,ntvs,load,tps,tvs,tss,sceneTime,totalTime){"+
@@ -460,6 +499,7 @@ export class DaoplayerGenerator {
             "daoplayer.log('switch to theme '+theme);window.dpNextTh=theme;window.dpNextThT=totalTime;"+
           "}else {"+
             // same theme - preserve 'current' section if any
+            // Note: just relying on volume didn't work
             "if(tss[theme] && tvs[theme]>0 && tss[theme].startTime<sceneTime-"+SMALL_TIME+"){"+
               // is it "our" scene playing?
               "if(window.dpNew && tss[theme].name!="+JSON.stringify(END_SECTION)+" && tss[theme].name.substr(0,level.length+1)==level+':'){window.dpNew=false;}"+
@@ -649,7 +689,16 @@ export class DaoplayerGenerator {
             let trackInfo = this.tracks[trackName]
             if (trackInfo.theme!==theme) {
               // diff theme - default to off/stop
-              // TODO other theme end
+              // configure other theme end
+              let trackRef : DaoTrackRef = {
+                name: trackInfo.daotrack.name,
+                volume: "trackVolume>0 && sceneTime<window.dpTransitions["+JSON.stringify(trackInfo.theme.id)+"].fade ?"+
+                  " [sceneTime,trackVolume,window.dpTransitions["+JSON.stringify(trackInfo.theme.id)+"].fade,0] : 0", 
+                // TODO fix up null handling?!
+                pos: null, //"sceneTime<window.dpTransitions["+JSON.stringify(trackInfo.theme.id)+"].fade ? [sceneTime,trackPos] : ["+JSON.stringify(END_SECTION)+"]", 
+                update: true
+              }
+              scene.tracks.push(trackRef)
             } else {
               // same theme
               let trackRef : DaoTrackRef = {

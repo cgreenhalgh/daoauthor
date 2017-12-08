@@ -211,7 +211,7 @@ export interface Track {
 }
 
 export interface TrackFile {
-  file: string,
+  file: string
   beats?: number
   seconds: number
   delaybeats?: number
@@ -221,6 +221,7 @@ export interface TrackFile {
   fadeseconds?: number
   volume2?: number
 }
+
 const SAMPLE_RATE = 44100
 const SMALL_TIME = 0.5/SAMPLE_RATE
 
@@ -391,4 +392,28 @@ export function readThemes(workbook:any) : Theme[] {
     }
   }
   return themes
+}
+
+
+export interface Transition {
+  fromtheme?: string
+  fadeoutseconds: number
+}
+const SHORT_FADE_TIME = 0.003
+
+// read settings in particular from sheet 'settings'
+export function readTransitions(workbook:any): Transition[] {
+  let s = workbook.Sheets['transitions']
+  if ( !s) 
+    throw new Error(`no "transitions" sheet in workbook`)
+  let sheet = readSheet(s)
+  let transitions: Transition[] = []
+  for (let row of sheet.rows) {
+    let transition : Transition = {
+      fromtheme: row["fromtheme"],
+      fadeoutseconds: row["fadeoutseconds"] ? Number(row["fadeoutseconds"]) : SHORT_FADE_TIME
+    }
+    transitions.push(transition)
+  }
+  return transitions
 }

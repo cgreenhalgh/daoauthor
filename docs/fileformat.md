@@ -110,18 +110,20 @@ Not yet supported:
 
 ## transitions
 
-NOT YET SUPPORTED; SUBJECT TO CHANGE
-
 Each row specifies how a theme (or layer) transition should be handled.
 
-The default transition behaviour is currently undefined, but is likely to be an abrupt cut or fast cross-fade.
+The default transition behaviour is a very fast fade out.
+
+At present all themes start immediately (in many applications a delay or fade in can be simulated by an initial level).
 
 The columns in this sheet are:
 - `fromtheme` - name/ID of theme transitioning from
+- `fadeoutseconds` - duration of fade out applied to theme/level being left (seconds, default very short)
+
+Not supported:
 - `fromlevel` - name/ID of level transitioning from (optional, if blank entry will apply to any level in that theme)
 - `totheme` - name/ID of theme transitioning to
 - `tolevel` - name/ID of level transitioning to (optional, if blank entry will apply to any level in that theme)
-- `fadeoutseconds` - duration of fade out applied to theme/level being left (seconds, default very short)
 - `delayseconds` - delay between start of fade out and start of fade in (seconds, default 0, i.e. cross-fade); can be larger than `fadeoutseconds` to add a gap
 - `fadeinseconds` - duration of fade in applied to theme/level being started (seconds, default very short)
 

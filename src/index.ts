@@ -1,6 +1,6 @@
 import * as xlsx from 'xlsx'
 import * as fs from 'fs'
-import { Sheet, readSheet, Settings, readSettings, Region, readRegions, Theme, readThemes } from './sheet'
+import { Sheet, readSheet, Settings, readSettings, Region, readRegions, Theme, readThemes, Transition, readTransitions } from './sheet'
 import { DaoplayerGenerator } from './daoplayer'
 
 const TOOL = "daoauthor-1"
@@ -30,7 +30,11 @@ try {
   let themes = readThemes(workbook)
   console.log(`read ${themes.length} themes`)
   daoplayer.addThemes(themes)
-  
+
+  let transitions = readTransitions(workbook)
+  console.log(`read ${transitions.length} transitions`)
+  daoplayer.addTransitions(transitions)
+
   let regions = readRegions(workbook)
   console.log(`read ${regions.length} regions`)
   daoplayer.addRegions(regions)

@@ -36,8 +36,9 @@ Results should be written to the `data` directory and accessible externally.
 
 At least some of the outstanding items:
 
-- theme transitions: fade out, delay (based on neighbours?!)
+- debug track (e.g. narrative) timing glitches on (?) load/update in quick succession
 - region time limits (e.g. `disableafter`?)
 - debug script timeouts
 - between theme beat alignment?
 - `globalvolume` ??
+- more sophisticated transitions??
