@@ -108,6 +108,8 @@ export interface Region {
   neighbours:string[]
   enable:string[]
   disable:string[]
+  onexitenable:string[]
+  onexitdisable:string[]
   theme:string
   level:string
   oneshot?:string
@@ -165,6 +167,8 @@ export function readRegions(workbook:any) : Region[] {
       neighbours: splitList(row['neighbours']),
       enable: splitList(row['enable']),
       disable: splitList(row['disable']),
+      onexitenable: splitList(row['onexitenable']),
+      onexitdisable: splitList(row['onexitdisable']),
       theme: row['theme'],
       level: row['level'],
       oneshot: row['oneshot'] ? row['oneshot'] : null

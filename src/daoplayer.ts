@@ -579,6 +579,7 @@ export class DaoplayerGenerator {
           "}"+
        "};"
     
+    initscene.onload = initscene.onload + "window.dpOxEn=[]; window.dpOxDis=[];\n"
     initscene.onload = initscene.onload + transitionCheck(null, initscene, regions)
     initscene.onupdate = transitionCheck(null, initscene, regions)
     // scenes enabled?
@@ -599,11 +600,21 @@ export class DaoplayerGenerator {
       if (output_speak_scene) {
         scene.onload = scene.onload+'daoplayer.speak('+JSON.stringify('region '+region.region)+', true); '
       }
+      // last scene enable/disable
+      scene.onload = scene.onload + 
+        "for(var i=0; i<window.dpOxEn.length; i++){"+VAR_ENABLED+"[window.dpOxEn[i]]=true;}"+
+        "window.dpOxEn=[];"+
+        "for(var i=0; i<window.dpOxDis.length; i++){"+VAR_ENABLED+"[window.dpOxDis[i]]=false;}"+
+        "window.dpOxDis=[];"
       // on load, enable/disable
       for (let rname of region.enable)
         scene.onload = scene.onload + VAR_ENABLED+'['+JSON.stringify(rname)+']=true; '
       for (let rname of region.disable)
         scene.onload = scene.onload + VAR_ENABLED+'['+JSON.stringify(rname)+']=false; '
+      for (let rname of region.onexitenable)
+        scene.onload = scene.onload + "window.dpOxEn.push("+JSON.stringify(rname)+");"
+      for (let rname of region.onexitdisable)
+        scene.onload = scene.onload + "window.dpOxDis.push("+JSON.stringify(rname)+");"
       
       if (!region.theme || !region.level) {
         // give up!

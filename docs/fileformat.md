@@ -46,6 +46,8 @@ The columns in this sheet which define a `region` are:
 - `neighbours` - comma-separated list of regions to which transitions are expected
 - `enable` - comma-separated list of regions which should be enabled when this region becomes active
 - `disable` - comma-separated list of regions which should be disabled when this region becomes active
+- `onexitenable` - comma-separated list of regions which should be enabled when this region becomes inactive
+- `onexitdisable` - comma-separated list of regions which should be disabled when this region becomes inactive
 - `theme` and `level` - theme and level that are transitioned to when this region becomes active 
 
 Note: can `level` have multiple values? If so, why? random choice?!
