@@ -9,7 +9,8 @@ configuration files/scripts for use with
 [daoplayer2](https://github.com/cgreenhalgh/daoplayer2)/
 [dymo-core](https://github.com/dynamic-music/dymo-core).
 
-Status: just starting...
+Status: regions and within-theme transitions working but not well tested. 
+See TODO list below.
 
 By Chris Greenhalgh <chris.greenhalgh@nottingham.ac.uk>
 Copyright (c) The University of Nottingham, 2017
@@ -19,16 +20,17 @@ Copyright (c) The University of Nottingham, 2017
 ```
 docker build -t daoauthor .
 ```
+
+Interactive shell:
 ```
-docker run -it daoauthor
+docker run -it --rm -v `pwd`/data:/root/work/data daoauthor
 ```
 In container
 ```
-cd /root/work
-npm install
-npm run-script build
-node dist/index.js data/mobile\ music\ ex1.1.xlsx
+cd /root/work/data
+node ../dist/index.js mobile\ music\ ex1.1.xlsx
 ```
+Results should be written to the `data` directory and accessible externally.
 
 ## TODO
 
