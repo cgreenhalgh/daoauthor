@@ -373,11 +373,18 @@ export class DaoplayerGenerator {
           // each file volume
           for(let file of track.files) {
             sectionPos += file.delayseconds
+            if (sectionPos >= level.seconds) {
+              console.log(`Warning: theme ${theme.id} level ${level.id} file ${file.file} starts after end of level`)
+              break
+            }
             volumes.push(sectionPos)
             let volume = file.volume1
             volumes.push(volume)
             if (file.fadeseconds!==null && file.volume2!==null) {
-              if (file.fadeseconds>file.seconds) {
+              if (sectionPos+file.fadeseconds>level.seconds) {
+                console.log(`Warning: theme ${theme.id} level ${level.id} track ${track.id} file ${file.file} has fade past end of level`)
+                volumes.push(level.seconds-SHORT_FADE_TIME)
+              } else if (file.fadeseconds>file.seconds) {
                 console.log(`Warning: theme ${theme.id} level ${level.id} track ${track.id} file ${file.file} has fade longer than length (${file.fadeseconds} vs ${file.seconds})`)
                 volumes.push(sectionPos+file.seconds)
               } else {
@@ -386,9 +393,15 @@ export class DaoplayerGenerator {
               volume = file.volume2
               volumes.push(volume)
             }
-            volumes.push(sectionPos+file.seconds)
-            volumes.push(volume)
             sectionPos += file.seconds
+            if (sectionPos> level.seconds) {
+              sectionPos = level.seconds
+            }
+            // short fade at the end
+            volumes.push(sectionPos-SHORT_FADE_TIME)
+            volumes.push(volume)
+            volumes.push(sectionPos)
+            volumes.push(0)
           }
           if (track.tracktype==TrackType.Oneshot) {
             // one shot section name: theme.id+':'+level.id
@@ -473,14 +486,16 @@ export class DaoplayerGenerator {
                 "var tname=window.dpThemeTNames[theme][ti];"+
                 "var vs=window.dpVolumeIndex[tname][tss[theme].name];"+
                 "if(vs) {"+
-                  // include any before ntime and hope it copes (it should)
+                  // include any before ntime (less a short fade) and hope it copes (it should)
                   // but we need to stop at/before ntime
-                  "var i; for(i=0; i<vs.length && vs[i]+tss[theme].startTime<ntime+"+SMALL_TIME+"; i+=2)"+
+                  "var i; for(i=0; i<vs.length && vs[i]+tss[theme].startTime<ntime+"+SMALL_TIME+"-"+SHORT_FADE_TIME+"; i+=2)"+
                    "{ntvs[tname].push(tss[theme].startTime+vs[i]);ntvs[tname].push(vs[i+1]);}"+
                   // interpolate last value e.g. if early end in fade
                   "if(i<vs.length && i>=2 && vs[i-2]!=vs[i]) {"+
-                    "ntvs[tname].push(ntime);ntvs[tname].push(vs[i-1]+(vs[i+1]-vs[i-1])*(ntime-sceneTime)/(vs[i]-vs[i-2]));"+
+                    "ntvs[tname].push(ntime-"+SHORT_FADE_TIME+");ntvs[tname].push(vs[i-1]+(vs[i+1]-vs[i-1])*(ntime-sceneTime)/(vs[i]-vs[i-2]));"+
                   "}"+
+                  // v short fade
+                  "ntvs[tname].push(ntime);ntvs[tname].push(0);"+
                 "}else{"+
                   "ntvs[tname].push(sceneTime);ntvs[tname].push(0);"+
                   "ntvs[tname].push(ntime);ntvs[tname].push(0);"+

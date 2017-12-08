@@ -36,10 +36,11 @@ Results should be written to the `data` directory and accessible externally.
 
 At least some of the outstanding items:
 
+- level transition short fades 
+- check/fix why "glitch" scene won't transition on a single beat
 - `onexitenable`, `onexitdisable`
 - theme transitions: fade out, delay (based on neighbours?!)
 - region time limits (e.g. `disableafter`?)
-- level transition short fades
 - debug script timeouts
 - between theme beat alignment?
 - `globalvolume` ??
