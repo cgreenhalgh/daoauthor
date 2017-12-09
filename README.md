@@ -37,8 +37,12 @@ Results should be written to the `data` directory and accessible externally.
 At least some of the outstanding items:
 
 - debug track (e.g. narrative) timing glitches on (?) load/update in quick succession
+- transition - override first level
+- `choice` track type (exactly one of the files, i.e. permutations [0], [1], [2], ...)
+- continuous controllers?? e.g. volume from proximity?
+- within level transitions? i.e. to the same time in the other level??
 - region time limits (e.g. `disableafter`?)
 - debug script timeouts
 - between theme beat alignment?
 - `globalvolume` ??
-- more sophisticated transitions??
+- other more sophisticated transitions??
