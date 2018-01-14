@@ -67,9 +67,30 @@ export interface DaoScene {
   description?:string
   artist?:string
 }
+export interface DaoWaypoint {
+  name:string
+  lat:number
+  lng:number
+  origin?:boolean
+  description?:string
+}
+export interface DaoRoute {
+  name:string
+  description?:string
+  from:string
+  to:string
+  nearDistance?:number
+}
+export interface DaoContext {
+  title?:string
+  waypoints?: DaoWaypoint[]
+  routes?: DaoRoute[]
+}
+
 export interface Daoplayer {
   meta:DaoMeta
   merge?:string[]
+  context?:DaoContext
   defaultScene?:string
   tracks?:DaoTrack[]
   scenes?:DaoScene[]
@@ -251,7 +272,8 @@ export class DaoplayerGenerator {
   defaultTransition: DpTransition = {
     fade: SHORT_FADE_TIME
   }
-  
+  context:DaoContext = null
+
   init(settings:Settings) {
     this.dp = {
         meta: {
@@ -310,8 +332,50 @@ export class DaoplayerGenerator {
       return this.defaultTransition
     return transition
   }
-      
+
+  hasWaypoint(name:string) : boolean {
+    if (this.context && this.context.waypoints) {
+      for (let waypoint of this.context.waypoints) {
+        if (name==waypoint.name)
+          return true
+      }
+    }
+    return false
+  }
+  hasRoute(name:string) : boolean {
+    if (this.context && this.context.routes) {
+      for (let route of this.context.routes) {
+        if (name==route.name)
+          return true
+      }
+    }
+    return false
+  }
+  checkContext(regions:Region[]) {
+    if (!this.context) {
+      console.log('Warning: cannot check context (not loaded)')
+      return
+    }
+    for (let region of regions) {
+      for (let route of region.routes) {
+        if (!this.hasRoute(route)) 
+          console.log(`ERROR: reference to unknown route ${route} in region ${region.region}`)
+      }
+      if (region.waypoint) {
+        if (!this.hasWaypoint(region.waypoint)) 
+          console.log(`ERROR: reference to unknown waypoint ${region.waypoint} in region ${region.region}`)
+      }
+    }
+    for (let route of this.context.routes) {
+      if (route.from && !this.hasWaypoint(route.from)) 
+        console.log(`ERROR: context route ${route.name} goes from unknown waypoint ${route.from}`)
+      if (route.to && !this.hasWaypoint(route.to)) 
+        console.log(`ERROR: context route ${route.name} goes to unknown waypoint ${route.to}`)
+    }
+  }
   addRegions(regions: Region[]) {
+    // check context
+    this.checkContext(regions)
     // add init region
     let initscene:DaoScene = {
         name: DEFAULT_SCENE,
@@ -983,5 +1047,11 @@ export class DaoplayerGenerator {
   
   getData(): Daoplayer {
     return this.dp
+  }
+    
+  setContext(context:DaoContext) {
+    if (!context)
+      return
+    this.context = context
   }
 }

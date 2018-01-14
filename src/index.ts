@@ -1,7 +1,7 @@
 import * as xlsx from 'xlsx'
 import * as fs from 'fs'
 import { Sheet, readSheet, Settings, readSettings, Region, readRegions, Theme, readThemes, Transition, readTransitions } from './sheet'
-import { DaoplayerGenerator } from './daoplayer'
+import { DaoplayerGenerator, Daoplayer, DaoContext } from './daoplayer'
 
 const TOOL = "daoauthor-1"
 
@@ -24,6 +24,19 @@ try {
   let version = settings.version
   console.log(`read "${title}" version ${version}`)
   
+  let contextfile = settings.contextfile
+  var context:DaoContext = null
+  if (contextfile) {
+    try {
+      let cdata = fs.readFileSync( contextfile, {encoding:'utf8'} )
+      let cdao = JSON.parse(cdata) as Daoplayer
+      context = cdao.context
+      if (context)
+        console.log(`read context from ${contextfile}`)
+    } catch (err) {
+      console.log(`Error reading context ${contextfile}: ${err.message}`)
+    }
+  }
   let daoplayer:DaoplayerGenerator = new DaoplayerGenerator()
   daoplayer.init(settings)
   
@@ -35,11 +48,13 @@ try {
   console.log(`read ${transitions.length} transitions`)
   daoplayer.addTransitions(transitions)
 
+  daoplayer.setContext(context)  
+
   let regions = readRegions(workbook)
   console.log(`read ${regions.length} regions`)
   daoplayer.addRegions(regions)
   console.log(`added ${regions.length} regions`)
-  
+
   if (settings.outfile) {
     console.log(`write daoplayer file ${settings.outfile}`)
     fs.writeFileSync( settings.outfile, JSON.stringify( daoplayer.getData(), null, '  '), {encoding: 'utf8'} )
