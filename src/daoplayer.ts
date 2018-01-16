@@ -4,7 +4,7 @@ import { Settings, Region, Theme, Level, Track, TrackType, TrackFile, Transition
 // daoplayer JSON file format
 export interface DaoMeta {
   mimetype:string
-  version:number
+  version:string
   title?:string
   description?:string
   artist?:string
@@ -278,7 +278,7 @@ export class DaoplayerGenerator {
     this.dp = {
         meta: {
           mimetype: 'application/x-daoplayer-composition',
-          version: 1,
+          version: "1.1",
           title: settings.title,
           description: settings.description,
           artist: settings.author
