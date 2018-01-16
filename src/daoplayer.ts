@@ -648,27 +648,35 @@ export class DaoplayerGenerator {
               "ntps[tname].push(tss[tname].startTime);"+
               "ntps[tname].push(tss[tname].name);"+
               "endTime=tss[tname].endTime;"+
+              // oneshot in next level?
+              "if(window.dpOneshotIndex[theme][nlevel][tname] && ntime<endTime) {endTime=ntime;}"+
               "var vs=window.dpVolumeIndex[tname][tss[tname].name];"+
               "if(vs) {"+
                 // include any before ntime and hope it copes (it should)
                 // but we need to stop at/before ntime
-                "var i; for(i=0; i<vs.length && vs[i]+tss[theme].startTime<ntime+"+SMALL_TIME+"-"+SHORT_FADE_TIME+"; i+=2)"+
+                "var i; for(i=0; i<vs.length && vs[i]+tss[tname].startTime<endTime+"+SMALL_TIME+"-"+SHORT_FADE_TIME+"; i+=2)"+
                  "{ntvs[tname].push(tss[tname].startTime+vs[i]);ntvs[tname].push(vs[i+1]);}"+
                 // interpolate last value e.g. if early end in fade
                 "if(i<vs.length && i>=2 && vs[i-2]!=vs[i]) {"+
-                  "ntvs[tname].push(ntime-"+SHORT_FADE_TIME+");ntvs[tname].push(vs[i-1]+(vs[i+1]-vs[i-1])*(ntime+"+SMALL_TIME+"-"+SHORT_FADE_TIME+"-(tss[theme].startTime+vs[i-2]))/(vs[i]-vs[i-2]));"+
+                  "ntvs[tname].push(endTime-"+SHORT_FADE_TIME+");ntvs[tname].push(vs[i-1]+(vs[i+1]-vs[i-1])*(endTime+"+SMALL_TIME+"-"+SHORT_FADE_TIME+"-(tss[tname].startTime+vs[i-2]))/(vs[i]-vs[i-2]));"+
                 "}"+
+                // v short fade
+                "ntvs[tname].push(endTime);ntvs[tname].push(0);"+
+                "ntps[tname].push(endTime);ntps[tname].push("+JSON.stringify(END_SECTION)+");"+
               "}else{"+
                 "ntvs[tname].push(sceneTime);ntvs[tname].push(0);"+
                 "ntvs[tname].push(ntime);ntvs[tname].push(0);"+
+                // what is it if it doesn't have a volume??
+                "ntps[tname].push(sceneTime);ntps[tname].push("+JSON.stringify(END_SECTION)+");"+
               "}"+
-            "}"+
+            "} else {ntps[tname].push(sceneTime);ntps[tname].push("+JSON.stringify(END_SECTION)+"); "+
+                "ntvs[tname].push(sceneTime); ntvs[tname].push(0);}"+
             // oneshot in next level?
             "if(window.dpOneshotIndex[theme][nlevel][tname]){"+
               // match time to theme/level - gap first?
-              "if(endTime<ntime){ntps[tname].push(endTime);ntps[tname].push("+JSON.stringify(END_SECTION)+");}"+
               "ntps[tname].push(ntime);"+
               "ntps[tname].push(theme+':'+nlevel);"+
+              "ntps[tname].push("+JSON.stringify(END_SECTION)+"); "+
               // volumes for next layer oneshot track
               "var vs=window.dpVolumeIndex[tname][theme+':'+nlevel];"+
               "if(vs) {"+
@@ -677,9 +685,7 @@ export class DaoplayerGenerator {
               "}else{"+
                 "ntvs[tname].push(ntime);ntvs[tname].push(0);"+
               "}"+
-            "} else {ntps[tname].push(endTime); ntvs[tname].push(endTime);}"+
-            // then silence
-            "ntps[tname].push("+JSON.stringify(END_SECTION)+");ntvs[tname].push(0);"+
+            "}"+
           "}"+
        "};"
     
