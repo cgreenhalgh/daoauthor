@@ -493,7 +493,7 @@ export class DaoplayerGenerator {
             if (sectionPos> level.seconds) {
               sectionPos = level.seconds
             }
-            // short fade at the end
+            // short fade at the end of each file
             volumes.push(sectionPos-SHORT_FADE_TIME)
             volumes.push(volume)
             volumes.push(sectionPos)
@@ -596,7 +596,7 @@ export class DaoplayerGenerator {
                    "{ntvs[tname].push(tss[theme].startTime+vs[i]);ntvs[tname].push(vs[i+1]);}"+
                   // interpolate last value e.g. if early end in fade
                   "if(i<vs.length && i>=2 && vs[i-2]!=vs[i]) {"+
-                    "ntvs[tname].push(ntime-"+SHORT_FADE_TIME+");ntvs[tname].push(vs[i-1]+(vs[i+1]-vs[i-1])*(ntime-sceneTime)/(vs[i]-vs[i-2]));"+
+                    "ntvs[tname].push(ntime-"+SHORT_FADE_TIME+");ntvs[tname].push(vs[i-1]+(vs[i+1]-vs[i-1])*(ntime+"+SMALL_TIME+"-"+SHORT_FADE_TIME+"-(tss[theme].startTime+vs[i-2]))/(vs[i]-vs[i-2]));"+
                   "}"+
                   // v short fade
                   "ntvs[tname].push(ntime);ntvs[tname].push(0);"+
@@ -652,11 +652,11 @@ export class DaoplayerGenerator {
               "if(vs) {"+
                 // include any before ntime and hope it copes (it should)
                 // but we need to stop at/before ntime
-                "var i; for(i=0; i<vs.length && vs[i]+tss[tname].startTime<ntime+"+SMALL_TIME+"; i+=2)"+
+                "var i; for(i=0; i<vs.length && vs[i]+tss[theme].startTime<ntime+"+SMALL_TIME+"-"+SHORT_FADE_TIME+"; i+=2)"+
                  "{ntvs[tname].push(tss[tname].startTime+vs[i]);ntvs[tname].push(vs[i+1]);}"+
                 // interpolate last value e.g. if early end in fade
                 "if(i<vs.length && i>=2 && vs[i-2]!=vs[i]) {"+
-                  "ntvs[tname].push(ntime);ntvs[tname].push(vs[i-1]+(vs[i+1]-vs[i-1])*(ntime-sceneTime)/(vs[i]-vs[i-2]));"+
+                  "ntvs[tname].push(ntime-"+SHORT_FADE_TIME+");ntvs[tname].push(vs[i-1]+(vs[i+1]-vs[i-1])*(ntime+"+SMALL_TIME+"-"+SHORT_FADE_TIME+"-(tss[theme].startTime+vs[i-2]))/(vs[i]-vs[i-2]));"+
                 "}"+
               "}else{"+
                 "ntvs[tname].push(sceneTime);ntvs[tname].push(0);"+
